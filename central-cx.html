@@ -99,6 +99,24 @@ th, td { text-align: left; padding: 9px 14px; border-top: 1px solid var(--line);
 thead th { border-top: 0; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
 td.r, th.r { text-align: right }
 
+/* Gráficos: uma série só, na cor de destaque da marca; valores e rótulos sempre na cor do texto. */
+.chart { display: flex; flex-direction: column; gap: 12px }
+.bars { display: grid; grid-template-columns: minmax(84px, 36%) 1fr auto; gap: 8px 10px; align-items: center; font-size: .9rem }
+.bars > span:first-child, .bars .rot { overflow-wrap: anywhere; line-height: 1.25 }
+.bars .trk { position: relative; height: 14px }
+.bars .bar { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px }
+.bars .bar.neg { border-radius: 4px 0 0 4px }
+.bars .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--muted) }
+.lnc svg { width: 100%; height: auto; display: block }
+.lnc text { fill: var(--muted); font-size: 11px; font-family: var(--body) }
+.lnc .g { stroke: var(--line); stroke-width: 1 }
+.lnc .p { stroke: var(--accent); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round }
+.lnc .d { fill: var(--accent); stroke: var(--surface); stroke-width: 2 }
+.lnc .h { fill: transparent }
+.lnc .h:hover + .d { stroke: var(--ink) }
+details.dados { font-size: .86rem; color: var(--muted) }
+details.dados summary { cursor: pointer }
+details.dados div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 1px solid var(--line); max-width: 320px }
 .ind { display: flex; flex-direction: column; gap: 10px }
 .ba { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap }
 .ba div b { display: block; font-family: var(--mono); font-size: 1.25rem; font-weight: 500; font-variant-numeric: tabular-nums }
@@ -157,17 +175,23 @@ dialog::backdrop { background: rgba(8, 20, 22, .55) }
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
-const COLS = ['clientes', 'links', 'indicadores', 'insights', 'tarefas', 'docs', 'membros'];
-const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], chat: [], sprint: null };
+const COLS = ['clientes', 'links', 'indicadores', 'insights', 'tarefas', 'docs', 'membros', 'graficos'];
+const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], graficos: [], chat: [], sprint: null };
 const loaded = {};
-let db = null, user = null, me = { id: null }, P = {}, filtroIns = '', filtroSp = '', pedindoPerfis = false;
+let mcp = null, db = null, user = null, me = { id: null }, P = {}, filtroIns = '', filtroSp = '', pedindoPerfis = false;
 
 const STATUS = { andamento: ['Em andamento', 'ac'], pos: ['Em pós-venda', 'av'], encerrado: ['Encerrado', ''] };
 const TLINK = { planilha: 'Planilha', documento: 'Documento', apresentacao: 'Apresentação', formulario: 'Formulário', pasta: 'Pasta', outro: 'Outro' };
 const FASE = { antes: 'Antes do projeto', durante: 'Durante', pos: 'Pós-venda' };
+/* O NPS só tem duas notas: no final do projeto e no pós-venda. */
+const FASE_TXT = { ...FASE, final: 'Final do projeto' };
 const TIND = { nps: 'NPS', csat: 'CSAT', resultado: 'Indicador de sucesso do cliente' };
 const TINS = { escopo: 'Novo escopo', projeto: 'Melhoria de projeto', interna: 'Iniciativa interna' };
 const SINS = { ideia: ['Ideia', ''], estudo: ['Em estudo', 'av'], proposto: ['Proposto', 'ac'], aprovado: ['Aprovado', 'bom'], descartado: ['Descartado', 'ruim'] };
+/* Escalas fixas de satisfação: NPS é nota de 1 a 10 e CSAT de 1 a 5. */
+const ESCALA = { nps: [1, 10], csat: [1, 5] };
+const foraEscala = (tipo, v) => { const e = ESCALA[tipo]; return e && (v < e[0] || v > e[1]) ? `O valor do ${TIND[tipo]} precisa estar entre ${e[0]} e ${e[1]}.` : ''; };
+const COORDS = ['Novos Negócios', 'Operações', 'Marketing'];
 const COLUNAS = [['afazer', 'A fazer'], ['fazendo', 'Fazendo'], ['feito', 'Feito']];
 const ops = o => Object.entries(o).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]);
 
@@ -206,7 +230,7 @@ function aviso(t) { const a = $('#aviso'); a.hidden = !t; a.innerHTML = t ? `<di
 
 function analise(ind) {
   const ms = (ind.medicoes || []).map((m, i) => ({ ...m, i })).sort((a, b) => String(a.data).localeCompare(String(b.data)));
-  const base = ms.find(m => m.fase === 'antes') || null;
+  const base = (ind.tipo === 'nps' ? (ms.find(m => m.fase === 'final') || ms.find(m => m.fase !== 'pos')) : ms.find(m => m.fase === 'antes')) || null;
   const pos = [...ms].reverse().find(m => m.fase === 'pos') || null;
   const ult = ms[ms.length - 1] || null;
   const ref = pos || (ult && ult !== base ? ult : null);
@@ -233,27 +257,145 @@ function spark(ms) {
   return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução das medições"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${x(vs.length - 1).toFixed(1)}" cy="${y(vs[vs.length - 1]).toFixed(1)}" r="3" fill="currentColor"/></svg>`;
 }
 
+/* ---------- gráficos ---------- */
+const media = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+const r1 = v => Math.round(v * 10) / 10;
+/* Barras horizontais a partir do zero. items: [{ r: rótulo, v: valor, sub: detalhe }]; `teto` fixa o fim da escala (100 em NPS e CSAT). */
+function barras(items, un, teto) {
+  const vs = items.map(i => i.v), lo = Math.min(0, ...vs), hi = Math.max(teto || 0, 0, ...vs), span = (hi - lo) || 1, z = (0 - lo) / span * 100;
+  return `<div class="bars">` + items.map(i => {
+    const w = Math.abs(i.v) / span * 100, l = i.v < 0 ? z - w : z;
+    return `<span class="rot">${esc(i.r)}${i.sub ? ` <span class="sub">${esc(i.sub)}</span>` : ''}</span><span class="trk" title="${esc(i.r + ': ' + fv(i.v, un))}"><i class="zero" style="left:${z}%"></i><i class="bar ${i.v < 0 ? 'neg' : ''}" style="left:${l}%;width:${w}%"></i></span><b class="num">${esc(fv(i.v, un))}</b>`;
+  }).join('') + `</div>`;
+}
+/* Linha para evolução no tempo: uma série, pontos com dica ao passar o mouse e a lista dos dados logo abaixo. */
+function linha(items, un) {
+  const W = 600, H = 220, L = 46, R = 16, T = 14, B = 30, vs = items.map(i => i.v), mn = Math.min(...vs), mx = Math.max(...vs);
+  const lo = mn === mx ? mn - 1 : mn - (mx - mn) * .1, hi = mn === mx ? mx + 1 : mx + (mx - mn) * .1, n = items.length;
+  const x = i => n === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (n - 1), y = v => T + (hi - v) * (H - T - B) / (hi - lo);
+  const ticks = mn === mx ? [mn] : [mn, (mn + mx) / 2, mx], passo = Math.ceil(n / 6);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de linha com ${n} pontos">`;
+  ticks.forEach(t => { s += `<line class="g" x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/><text x="${L - 8}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${esc(nf.format(r1(t)))}</text>`; });
+  if (n > 1) s += `<polyline class="p" points="${items.map((d, i) => x(i).toFixed(1) + ',' + y(d.v).toFixed(1)).join(' ')}"/>`;
+  items.forEach((d, i) => {
+    const tip = `<title>${esc(d.r + ': ' + fv(d.v, un))}</title>`;
+    s += `<circle class="h" cx="${x(i).toFixed(1)}" cy="${y(d.v).toFixed(1)}" r="13">${tip}</circle><circle class="d" cx="${x(i).toFixed(1)}" cy="${y(d.v).toFixed(1)}" r="4.5" pointer-events="none"/>`;
+    if (i % passo === 0 || i === n - 1) {
+      if (i === n - 1 && i % passo !== 0 && (n - 1) % passo < passo / 2 && n > 2) return;
+      const r = d.r.length > 12 ? d.r.slice(0, 11) + '…' : d.r;
+      s += `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="${n > 1 && i === 0 ? 'start' : n > 1 && i === n - 1 ? 'end' : 'middle'}">${esc(r)}</text>`;
+    }
+  });
+  return `<div class="lnc">${s}</svg></div><details class="dados"><summary>Ver dados</summary>${items.map(d => `<div><span>${esc(d.r)}</span><b class="num">${esc(fv(d.v, un))}</b></div>`).join('')}</details>`;
+}
+/* Painel automático de satisfação: usa a medição mais recente de cada NPS e CSAT cadastrado nas pastas dos clientes. */
+function satisfacao() {
+  const com = tipo => S.indicadores.filter(i => i.tipo === tipo).map(i => [i, analise(i)]).filter(([, a]) => a.ult);
+  const nps = com('nps'), csat = com('csat');
+  if (!nps.length && !csat.length) return `<div class="empty">Os gráficos aparecem aqui quando houver medições de NPS ou CSAT registradas nas pastas dos clientes.</div>`;
+  const m = xs => xs.length ? nf.format(r1(media(xs))) : '—';
+  const antes = nps.map(([, a]) => a.base?.valor).filter(v => v != null), pos = nps.map(([, a]) => a.pos?.valor).filter(v => v != null);
+  const npsItems = nps.map(([i, a]) => ({ r: cliNome(i.clienteId) || 'Sem cliente', v: a.ult.valor, sub: FASE_TXT[a.ult.fase] || '' })).sort((a, b) => b.v - a.v);
+  const g = {};
+  csat.forEach(([i, a]) => (g[i.macroetapa || 'Sem macroetapa'] ||= []).push(a.ult.valor));
+  const csatItems = Object.keys(g).sort((a, b) => a.localeCompare(b, 'pt-BR')).map(r => ({ r, v: r1(media(g[r])), sub: g[r].length + (g[r].length === 1 ? ' projeto' : ' projetos') }));
+  return `<div class="kpis">
+    <div class="card kpi"><span class="label">NPS médio no final do projeto (1 a 10)</span><b>${m(antes)}</b></div>
+    <div class="card kpi"><span class="label">NPS médio no pós-venda (1 a 10)</span><b>${m(pos)}</b></div>
+    <div class="card kpi"><span class="label">CSAT médio (1 a 5)</span><b>${csat.length ? m(csat.map(([, a]) => a.ult.valor)) : '—'}</b></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))">
+    <div class="card chart"><div><h3>NPS por cliente</h3><span class="sub">Medição mais recente de cada cliente, em nota de 1 a 10.</span></div>${npsItems.length ? barras(npsItems, '', 10) : '<span class="sub">Nenhum NPS medido ainda.</span>'}</div>
+    <div class="card chart"><div><h3>CSAT por macroetapa</h3><span class="sub">Média, em nota de 1 a 5, entre os projetos que já avaliaram cada macroetapa.</span></div>${csatItems.length ? barras(csatItems, '', 5) : '<span class="sub">Nenhum CSAT medido ainda.</span>'}</div></div>`;
+}
+/* Número digitado ou vindo da planilha no padrão brasileiro: "1.234,5", "42%", "R$ 300" e também "7.5". */
+function numero(t) {
+  t = String(t ?? '').replace(/[^\d.,-]/g, '');
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+  return parseFloat(t);
+}
+/* Gráficos ligados ao Google Sheets: os dados não ficam guardados na central, são lidos da planilha com o conector
+   Google Sheets de quem está vendo. PL guarda o estado de cada leitura; as leituras rodam em fila, uma por vez. */
+const SHEETS = 'Google Sheets', PL = {};
+let mcpPronto = false, filaPl = Promise.resolve();
+const plId = url => (String(url || '').match(/\/d\/([\w-]{20,})/) || String(url || '').match(/^([\w-]{20,})$/) || [])[1] || '';
+const plChave = g => g.id + '|' + g.planilhaUrl + '|' + g.intervalo;
+const ERRO_PL = {
+  server_not_connected: 'Adicione o conector Google Sheets em claude.ai, em Configurações → Conectores, para ver este gráfico.',
+  selection_required: 'Você tem mais de um conector Google Sheets. Escolha qual usar no aviso do claude.ai e atualize.',
+  needs_reauth: 'O acesso ao Google Sheets expirou. Reconecte o conector em claude.ai, em Configurações → Conectores.',
+  not_in_manifest: 'O uso do Google Sheets não foi permitido para esta página. Permita no menu de permissões da página e atualize.',
+  approval_required: 'A leitura da planilha precisa da sua aprovação. Clique em “Atualizar” e permita o acesso.',
+  consent_required: 'A leitura da planilha precisa da sua aprovação. Clique em “Atualizar” e permita o acesso.',
+  not_granted: 'O uso do Google Sheets não foi permitido para esta página.',
+  blocked_by_policy: 'A sua organização bloqueia o uso do Google Sheets nesta página.',
+  tool_error: 'A planilha não pôde ser lida. Confira o link, o nome da aba e o intervalo, e se a sua conta Google tem acesso a ela.',
+  server_unavailable: 'O Google Sheets não respondeu agora. Tente atualizar em instantes.',
+};
+function achaValores(p) {
+  if (typeof p === 'string') { try { p = JSON.parse(p); } catch { return null; } }
+  if (Array.isArray(p)) return p.every(Array.isArray) ? p : null;
+  if (!p || typeof p !== 'object') return null;
+  if (Array.isArray(p.values)) return p.values;
+  for (const k of Object.keys(p)) { const r = achaValores(p[k]); if (r) return r; }
+  return null;
+}
+function lerPlanilha(g, forcar) {
+  const k = plChave(g), id = plId(g.planilhaUrl);
+  if (!id || !g.intervalo) { PL[k] = { erro: 'Informe o link da planilha e o intervalo em “Editar”.' }; return; }
+  PL[k] = { ...(PL[k] || {}), lendo: true, erro: '' };
+  const umaVez = () => mcp.callTool(SHEETS, 'get_values', { spreadsheetId: id, range: g.intervalo }, forcar ? { cache: { refresh: true } } : undefined);
+  filaPl = filaPl.then(async () => {
+    try {
+      let r;
+      try { r = await umaVez(); }
+      catch (e) { if (!e?.retryable) throw e; await new Promise(ok => setTimeout(ok, Math.min(e.retryAfterMs || 1500, 8000) + Math.random() * 500)); r = await umaVez(); }
+      const linhas = achaValores(r.payload) || [];
+      const dados = linhas.map(l => ({ r: String(l[0] ?? '').trim(), v: numero(l[1]) })).filter(d => d.r && isFinite(d.v)).slice(0, 40);
+      PL[k] = dados.length ? { dados, em: r.cache?.storedAt || Date.now() } : { erro: 'O intervalo não trouxe dados. Ele precisa ter duas colunas: rótulos na primeira e números na segunda.' };
+    } catch (e) {
+      PL[k] = { erro: ERRO_PL[e?.code] || 'Não foi possível ler a planilha agora. Tente atualizar em instantes.' };
+    }
+    render();
+  });
+}
+function grafCard(g) {
+  const pl = g.fonte === 'planilha', det = [cliNome(g.clienteId), g.unidade ? 'em ' + g.unidade : ''].filter(Boolean).join(' · ');
+  let d = g.dados || [], corpo = '', rod = '';
+  if (pl) {
+    const k = plChave(g);
+    if (mcpPronto && mcp && !PL[k]) lerPlanilha(g);
+    const st = PL[k] || {};
+    d = st.dados || [];
+    if (mcpPronto && !mcp) corpo = `<span class="sub">Este gráfico lê uma planilha do Google Sheets. Abra a central no claude.ai, com o conector Google Sheets ativo, para ver os dados.</span>`;
+    else if (st.erro) corpo = `<span class="sub">${esc(st.erro)}</span>`;
+    else if (!d.length) corpo = `<span class="sub">Lendo a planilha…</span>`;
+    rod = `<div class="meta sub" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${plId(g.planilhaUrl) ? `<a href="https://docs.google.com/spreadsheets/d/${esc(plId(g.planilhaUrl))}" target="_blank" rel="noopener">Abrir planilha</a>` : ''}<span>${esc(g.intervalo || '')}</span>${st.em ? `<span>lido às ${new Date(st.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>` : ''}${mcp ? `<button class="btn mini" data-act="ler-planilha" data-id="${g.id}" ${st.lendo ? 'disabled' : ''}>${st.lendo ? 'Lendo…' : 'Atualizar'}</button>` : ''}</div>`;
+  } else if (!d.length) corpo = '<span class="sub">Sem dados.</span>';
+  return `<div class="card chart"><div class="head"><div><h3>${esc(g.titulo)}</h3>${det ? `<span class="sub">${esc(det)}</span>` : ''}</div>${btn('edit-grafico', 'Editar', `data-id="${g.id}"`, 'mini')}</div>${corpo || (g.tipo === 'linha' ? linha(d, g.unidade) : barras(d, g.unidade))}${rod}${g.nota ? `<p class="sub doc">${esc(g.nota)}</p>` : ''}</div>`;
+}
+
 /* ---------- telas ---------- */
 function vInicio() {
   const ativos = S.clientes.filter(c => c.status !== 'encerrado');
   const nps = S.indicadores.filter(i => i.tipo === 'nps').map(i => analise(i).ult).filter(Boolean);
-  const npsMedio = nps.length ? nf.format(Math.round(nps.reduce((s, m) => s + m.valor, 0) / nps.length)) : '—';
+  const npsMedio = nps.length ? nf.format(Math.round(nps.reduce((s, m) => s + m.valor, 0) / nps.length * 10) / 10) : '—';
   const abertos = S.insights.filter(i => !['aprovado', 'descartado'].includes(i.status)).length;
   let h = `<div class="head"><div><h1>Visão geral</h1><p class="sub">Acompanhamento de clientes, pós-venda e análise de indicadores da Ayra Consultoria, Empresa Júnior de Gestão de Negócios da UFRJ.</p></div></div>`;
   if (!S.clientes.length) {
     h += `<section class="card sec"><h2>Por onde começar</h2><ol class="steps">
       <li>Cadastre o cliente e o projeto em <a href="#clientes">Clientes</a>. Cada cliente vira uma pasta dentro da sua coordenadoria.</li>
       <li>Guarde na pasta os links de planilhas, documentos e formulários do projeto.</li>
-      <li>Registre a linha de base: NPS, CSAT e o indicador que o cliente usa para medir sucesso, com a fase “Antes do projeto”.</li>
+      <li>Registre a linha de base do indicador que o cliente usa para medir sucesso, com a fase “Antes do projeto”, e o CSAT ao fim de cada macroetapa.</li>
       <li>Defina a data do pós-venda. Ela aparece aqui quando estiver chegando.</li>
-      <li>No pós-venda, registre as novas medições. A central calcula a variação e você anota os aprendizados em <a href="#insights">Insights</a>.</li>
+      <li>Informe o NPS no final do projeto e de novo no pós-venda, junto com a nova medição do indicador de sucesso. A central calcula a variação e você anota os aprendizados em <a href="#insights">Insights</a>.</li>
     </ol><div>${btn('novo-cliente', 'Cadastrar primeiro cliente', '', 'pri')}</div></section>`;
     return h;
   }
   h += `<div class="kpis">
     <div class="card kpi"><span class="label">Clientes ativos</span><b>${ativos.length}</b></div>
     <div class="card kpi"><span class="label">Em pós-venda</span><b>${S.clientes.filter(c => c.status === 'pos').length}</b></div>
-    <div class="card kpi"><span class="label">NPS médio atual</span><b>${npsMedio}</b></div>
+    <div class="card kpi"><span class="label">NPS médio atual (1 a 10)</span><b>${npsMedio}</b></div>
     <div class="card kpi"><span class="label">Insights em aberto</span><b>${abertos}</b></div></div>`;
 
   const pv = ativos.filter(c => c.posVendaEm).sort((a, b) => a.posVendaEm.localeCompare(b.posVendaEm));
@@ -263,7 +405,7 @@ function vInicio() {
   }).join('') + `</div>` : `<div class="empty">Nenhum pós-venda agendado. Defina a data do pós-venda na ficha do cliente.</div>`) + `</section>`;
 
   const comp = S.indicadores.map(i => [i, analise(i)]).filter(([, a]) => a.base);
-  h += `<section class="sec"><div><h2>Antes e depois</h2><p class="sub">Linha de base contra a medição mais recente (a do pós-venda, quando existe).</p></div>` + (comp.length ? `<div class="tw"><table><thead><tr><th>Cliente</th><th>Indicador</th><th class="r">Antes</th><th class="r">Atual</th><th class="r">Variação</th></tr></thead><tbody>` + comp.map(([i, a]) =>
+  h += `<section class="sec"><div><h2>Antes e depois</h2><p class="sub">Primeira referência (antes do projeto; no NPS, o final do projeto) contra a medição mais recente, a do pós-venda quando existe.</p></div>` + (comp.length ? `<div class="tw"><table><thead><tr><th>Cliente</th><th>Indicador</th><th class="r">Referência</th><th class="r">Atual</th><th class="r">Variação</th></tr></thead><tbody>` + comp.map(([i, a]) =>
     `<tr><td><a href="#c-${i.clienteId}">${esc(cliNome(i.clienteId) || '—')}</a></td><td>${esc(i.nome)}</td><td class="r num">${fv(a.base.valor, i.unidade)}</td><td class="r num">${a.ref ? fv(a.ref.valor, i.unidade) : '—'}</td><td class="r">${a.ref ? pill(deltaTxt(i, a), a.tom) : '<span class="sub">aguardando nova medição</span>'}</td></tr>`).join('') + `</tbody></table></div>`
     : `<div class="empty">Ainda não há indicadores com linha de base. Registre uma medição com a fase “Antes do projeto” na pasta do cliente.</div>`) + `</section>`;
 
@@ -313,10 +455,10 @@ function vCliente(id) {
   h += `<section class="sec"><div class="head"><h2>Indicadores</h2>${btn('novo-ind', 'Novo indicador', `data-cli="${id}"`)}</div>` + (inds.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">` + inds.map(i => {
     const a = analise(i);
     return `<div class="card ind"><div class="head"><div><h3>${esc(i.nome)}</h3><span class="sub">${i.sentido === 'descer' ? 'Quanto menor, melhor' : 'Quanto maior, melhor'}</span></div>${btn('edit-ind', 'Editar', `data-id="${i.id}"`, 'mini')}</div>
-      <div class="ba"><div><span class="label">Antes</span><b>${a.base ? fv(a.base.valor, i.unidade) : '—'}</b></div><div><span class="label">${a.pos ? 'Pós-venda' : 'Atual'}</span><b>${a.ref ? fv(a.ref.valor, i.unidade) : '—'}</b></div>${a.delta != null ? pill(deltaTxt(i, a), a.tom) : ''}${spark(a.ms)}</div>
-      <div class="meds">${a.ms.length ? a.ms.map(m => `<div><span class="num">${fdata(m.data)}</span><span class="sub">${esc(FASE[m.fase] || '')}</span><b class="num">${fv(m.valor, i.unidade)}</b>${m.obs ? `<span class="sub">${esc(m.obs)}</span>` : ''}${btn('del-med', 'Remover', `data-id="${i.id}" data-i="${m.i}"`, 'mini danger')}</div>`).join('') : '<span class="sub">Sem medições. Comece pela linha de base.</span>'}
-      <div>${btn('nova-med', 'Registrar medição', `data-id="${i.id}"`, 'mini')}</div></div></div>`;
-  }).join('') + `</div>` : `<div class="empty">Crie o NPS, o CSAT e o indicador de sucesso do cliente. Depois registre a medição de antes do projeto e a do pós-venda para comparar.</div>`) + `</section>`;
+      <div class="ba"><div><span class="label">${i.tipo === 'nps' ? 'Final do projeto' : 'Antes'}</span><b>${a.base ? fv(a.base.valor, i.unidade) : '—'}</b></div><div><span class="label">${a.pos ? 'Pós-venda' : 'Atual'}</span><b>${a.ref ? fv(a.ref.valor, i.unidade) : '—'}</b></div>${a.delta != null ? pill(deltaTxt(i, a), a.tom) : ''}${spark(a.ms)}</div>
+      <div class="meds">${a.ms.length ? a.ms.map(m => `<div><span class="num">${fdata(m.data)}</span><span class="sub">${esc(FASE_TXT[m.fase] || '')}</span><b class="num">${fv(m.valor, i.unidade)}</b>${m.obs ? `<span class="sub">${esc(m.obs)}</span>` : ''}${i.tipo === 'nps' ? '' : btn('del-med', 'Remover', `data-id="${i.id}" data-i="${m.i}"`, 'mini danger')}</div>`).join('') : `<span class="sub">${i.tipo === 'nps' ? 'Sem notas ainda. Use “Editar” para informar o NPS do final do projeto e o do pós-venda.' : 'Sem medições. Comece pela linha de base.'}</span>`}
+      ${i.tipo === 'nps' ? '' : `<div>${btn('nova-med', 'Registrar medição', `data-id="${i.id}"`, 'mini')}</div>`}</div></div>`;
+  }).join('') + `</div>` : `<div class="empty">Crie o NPS (duas notas de 1 a 10: no final do projeto e no pós-venda), o CSAT (de 1 a 5, por macroetapa) e o indicador de sucesso do cliente, com a medição de antes do projeto e a do pós-venda.</div>`) + `</section>`;
 
   const ins = S.insights.filter(i => i.clienteId === id);
   h += `<section class="sec"><div class="head"><h2>Insights deste cliente</h2>${btn('novo-insight', 'Registrar insight', `data-cli="${id}"`)}</div>${ins.length ? `<div class="grid">` + ins.map(i => insCard(i, false)).join('') + `</div>` : `<div class="empty">O que os números deste projeto ensinam? Anote ideias de escopo, melhorias e iniciativas.</div>`}</section>`;
@@ -340,9 +482,13 @@ function vSprint() {
 
 function vInsights() {
   const ls = S.insights.filter(i => !filtroIns || i.status === filtroIns).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
-  return `<div class="head"><div><h1>Insights</h1><p class="sub">Ideias que saem da análise dos indicadores: novos escopos, melhorias de projeto e iniciativas internas.</p></div>${btn('novo-insight', 'Registrar insight', '', 'pri')}</div>
-    <div><select id="filtro-ins" class="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${ops(SINS).map(([k, v]) => `<option value="${k}" ${filtroIns === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-    ${ls.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">` + ls.map(i => insCard(i, true)).join('') + `</div>` : `<div class="empty">${S.insights.length ? 'Nenhum insight nesta situação.' : 'Nenhum insight registrado ainda.'}</div>`}`;
+  const gs = [...S.graficos].sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  return `<div class="head"><div><h1>Insights</h1><p class="sub">Os números de satisfação, os gráficos da equipe e as ideias que saem da análise: novos escopos, melhorias de projeto e iniciativas internas.</p></div>${btn('novo-insight', 'Registrar insight', '', 'pri')}</div>
+    <section class="sec"><div><h2>Indicadores de satisfação</h2><p class="sub">Calculados automaticamente a partir das medições registradas nas pastas dos clientes.</p></div>${satisfacao()}</section>
+    <section class="sec"><div class="head"><div><h2>Gráficos da equipe</h2><p class="sub">Gráficos ligados a uma planilha do Google Sheets: informe o link e o intervalo, e a central lê os dados direto de lá.</p></div>${btn('novo-grafico', 'Inserir gráfico')}</div>
+    ${gs.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))">` + gs.map(grafCard).join('') + `</div>` : `<div class="empty">Nenhum gráfico inserido ainda.</div>`}</section>
+    <section class="sec"><div class="head"><h2>Ideias e insights</h2><select id="filtro-ins" class="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${ops(SINS).map(([k, v]) => `<option value="${k}" ${filtroIns === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    ${ls.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))">` + ls.map(i => insCard(i, true)).join('') + `</div>` : `<div class="empty">${S.insights.length ? 'Nenhum insight nesta situação.' : 'Nenhum insight registrado ainda.'}</div>`}</section>`;
 }
 
 function vDocs() {
@@ -440,7 +586,7 @@ $('#frm').addEventListener('submit', async e => {
 function fCliente(c) {
   openForm({ titulo: c ? 'Editar cliente' : 'Novo cliente', valores: c, campos: [
     { k: 'nome', label: 'Cliente', req: 1 },
-    { k: 'coordenadoria', label: 'Coordenadoria', lista: [...new Set(S.clientes.map(x => x.coordenadoria).filter(Boolean))], dica: 'Define em qual grupo a pasta aparece.' },
+    { k: 'coordenadoria', label: 'Coordenadoria', tipo: 'sel', req: 1, ops: [['', 'Selecione'], ...COORDS.map(x => [x, x]), ...(c?.coordenadoria && !COORDS.includes(c.coordenadoria) ? [[c.coordenadoria, c.coordenadoria + ' (antiga)']] : [])], dica: 'Define em qual grupo a pasta aparece.' },
     { k: 'projeto', label: 'Projeto' },
     { k: 'status', label: 'Situação', tipo: 'sel', ops: ops(STATUS), padrao: 'andamento' },
     { k: 'inicio', label: 'Início do projeto', tipo: 'date' },
@@ -463,26 +609,42 @@ function fLink(l, cli) {
     excluir: l && (() => del('links', l.id)) });
 }
 function fInd(i, cli) {
-  /* No CSAT o valor é informado no próprio cadastro, enquanto houver no máximo uma medição registrada. */
-  const m0 = (i?.medicoes || [])[0], umaMed = (i?.medicoes || []).length <= 1, csatVal = v => v.tipo === 'csat' && umaMed;
-  openForm({ titulo: i ? 'Editar indicador' : 'Novo indicador', valores: i && { ...i, valor: m0?.valor, data: m0?.data }, campos: [
+  /* NPS: só duas notas, no final do projeto e no pós-venda. CSAT: uma nota por macroetapa, enquanto houver no máximo uma medição. */
+  const ms = i?.medicoes || [], m0 = ms[0], umaMed = ms.length <= 1, eNps = v => v.tipo === 'nps';
+  const nF = i?.tipo === 'nps' ? (ms.find(m => m.fase === 'final') || ms.find(m => m.fase !== 'pos')) : null, nP = i?.tipo === 'nps' ? ms.find(m => m.fase === 'pos') : null;
+  openForm({ titulo: i ? 'Editar indicador' : 'Novo indicador', valores: i && { ...i, npsFinal: nF?.valor, npsFinalData: nF?.data, npsPos: nP?.valor, npsPosData: nP?.data, data: m0?.data }, campos: [
     { k: 'tipo', label: 'Tipo', tipo: 'sel', ops: ops(TIND), padrao: 'nps' },
     { k: 'macroetapa', label: 'Macroetapa do projeto', se: v => v.tipo === 'csat', lista: [...new Set(S.indicadores.map(x => x.macroetapa).filter(Boolean))], dica: 'O CSAT é medido ao fim de cada macroetapa. Crie um CSAT para cada uma, ex.: “Diagnóstico”.' },
-    { k: 'valor', label: 'Valor do CSAT (%)', tipo: 'num', se: csatVal, dica: 'Pode ficar em branco se a macroetapa ainda não foi avaliada.' },
-    { k: 'data', label: 'Data da medição', tipo: 'date', se: csatVal, padrao: hoje() },
-    { k: 'nome', label: 'Nome', se: v => v.tipo !== 'csat', dica: 'Para NPS pode ficar em branco. Para o indicador do cliente, ex.: “Leads por mês”.' },
-    { k: 'unidade', label: 'Unidade', se: v => v.tipo !== 'csat', dica: 'Ex.: leads, %, R$. Em branco no NPS: “pts”.' },
+    { k: 'npsFinal', label: 'NPS no final do projeto (de 1 a 10)', tipo: 'num', se: eNps, dica: 'Pode ficar em branco se o cliente ainda não respondeu.' },
+    { k: 'npsFinalData', label: 'Data do NPS do final do projeto', tipo: 'date', se: eNps },
+    { k: 'npsPos', label: 'NPS no pós-venda (de 1 a 10)', tipo: 'num', se: eNps, dica: 'Medido um período depois, para conferir se o cliente ainda recomendaria o serviço.' },
+    { k: 'npsPosData', label: 'Data do NPS do pós-venda', tipo: 'date', se: eNps },
+    { k: 'valorCsat', label: 'Valor do CSAT (de 1 a 5)', tipo: 'num', se: v => v.tipo === 'csat' && umaMed, padrao: i?.tipo === 'csat' ? m0?.valor : '', dica: 'Pode ficar em branco se a macroetapa ainda não foi avaliada.' },
+    { k: 'data', label: 'Data da medição', tipo: 'date', se: v => v.tipo === 'csat' && umaMed, padrao: hoje() },
+    { k: 'nome', label: 'Nome', se: v => v.tipo === 'resultado', dica: 'Ex.: “Leads por mês”.' },
+    { k: 'unidade', label: 'Unidade', se: v => v.tipo === 'resultado', dica: 'Ex.: leads, %, R$.' },
     { k: 'sentido', label: 'Resultado bom é', tipo: 'sel', se: v => v.tipo === 'resultado', ops: [['subir', 'Aumentar'], ['descer', 'Diminuir']], padrao: 'subir' }],
     salvar: v => {
-      const d = { tipo: v.tipo, macroetapa: '', sentido: 'subir' };
+      const d = { tipo: v.tipo, macroetapa: '', sentido: 'subir', unidade: '' };
       if (v.tipo === 'csat') {
         if (!v.macroetapa) return 'Informe a qual macroetapa este CSAT se refere.';
-        d.macroetapa = v.macroetapa; d.nome = 'CSAT · ' + v.macroetapa; d.unidade = (i?.tipo === 'csat' && i.unidade) || '%';
-        if (typeof v.valor === 'number') d.medicoes = [{ fase: m0?.fase || 'durante', valor: v.valor, data: v.data || hoje(), obs: m0?.obs || '' }];
+        d.macroetapa = v.macroetapa; d.nome = 'CSAT · ' + v.macroetapa;
+        if (typeof v.valorCsat === 'number') {
+          if (foraEscala('csat', v.valorCsat)) return foraEscala('csat', v.valorCsat);
+          d.medicoes = [{ fase: m0?.fase || 'durante', valor: v.valorCsat, data: v.data || hoje(), obs: m0?.obs || '' }];
+        }
+      } else if (v.tipo === 'nps') {
+        const dono = i ? i.clienteId : cli;
+        if (S.indicadores.some(x => x.tipo === 'nps' && x.clienteId === dono && x.id !== i?.id)) return 'Este cliente já tem um NPS. Edite o NPS existente para informar as duas notas.';
+        d.nome = 'NPS'; d.medicoes = [];
+        for (const [val, data, fase, ant] of [[v.npsFinal, v.npsFinalData, 'final', nF], [v.npsPos, v.npsPosData, 'pos', nP]]) {
+          if (typeof val !== 'number') continue;
+          if (foraEscala('nps', val)) return foraEscala('nps', val);
+          d.medicoes.push({ fase, valor: val, data: data || hoje(), obs: ant?.obs || '' });
+        }
       } else {
-        d.nome = v.nome; d.unidade = v.unidade;
-        if (v.tipo === 'nps') { d.nome ||= 'NPS'; d.unidade ||= 'pts'; }
-        else { if (!d.nome) return 'Dê um nome ao indicador de sucesso do cliente.'; d.sentido = v.sentido; }
+        if (!v.nome) return 'Dê um nome ao indicador de sucesso do cliente.';
+        d.nome = v.nome; d.unidade = v.unidade || ''; d.sentido = v.sentido;
       }
       return put('indicadores', i?.id || newId(), { ...(i ? semId(i) : { clienteId: cli, medicoes: [], criadoEm: Date.now() }), ...d });
     },
@@ -492,10 +654,10 @@ function fMed(i) {
   const tem = (i.medicoes || []).some(m => m.fase === 'antes');
   openForm({ titulo: 'Registrar medição · ' + i.nome, campos: [
     { k: 'fase', label: 'Fase', tipo: 'sel', ops: ops(FASE), padrao: tem ? 'pos' : 'antes' },
-    { k: 'valor', label: 'Valor' + (i.unidade ? ' (' + i.unidade + ')' : ''), tipo: 'num', req: 1 },
+    { k: 'valor', label: 'Valor' + (ESCALA[i.tipo] ? ` (de ${ESCALA[i.tipo][0]} a ${ESCALA[i.tipo][1]})` : i.unidade ? ' (' + i.unidade + ')' : ''), tipo: 'num', req: 1 },
     { k: 'data', label: 'Data da medição', tipo: 'date', req: 1, padrao: hoje() },
     { k: 'obs', label: 'Observação' }],
-    salvar: v => put('indicadores', i.id, { ...semId(i), medicoes: [...(i.medicoes || []), v] }) });
+    salvar: v => foraEscala(i.tipo, v.valor) || put('indicadores', i.id, { ...semId(i), medicoes: [...(i.medicoes || []), v] }) });
 }
 function fInsight(i, cli) {
   openForm({ titulo: i ? 'Editar insight' : 'Registrar insight', valores: i, campos: [
@@ -518,6 +680,35 @@ function fTarefa(t) {
     salvar: v => put('tarefas', t?.id || newId(), { ...(t ? semId(t) : { criadoEm: Date.now(), criadoPor: me.id || '' }), ...v }),
     excluir: t && (() => del('tarefas', t.id)) });
 }
+function fGrafico(g) {
+  const txt = (g?.dados || []).map(d => d.r + '; ' + String(d.v).replace('.', ',')).join('\n');
+  const ePl = v => v.fonte === 'planilha';
+  openForm({ titulo: g ? 'Editar gráfico' : 'Inserir gráfico', valores: g && { ...g, fonte: g.fonte || 'manual', dados: txt }, campos: [
+    { k: 'titulo', label: 'Título', req: 1, dica: 'Ex.: Leads por mês do cliente X.' },
+    { k: 'tipo', label: 'Tipo', tipo: 'sel', ops: [['barras', 'Barras (comparar categorias)'], ['linha', 'Linha (evolução no tempo)']], padrao: 'barras' },
+    { k: 'fonte', label: 'De onde vêm os dados', tipo: 'sel', ops: [['planilha', 'Planilha do Google Sheets'], ['manual', 'Digitar os dados aqui']], padrao: 'planilha' },
+    { k: 'planilhaUrl', label: 'Link da planilha', se: ePl, req: 1, dica: 'Cole o endereço da planilha no Google Sheets.' },
+    { k: 'intervalo', label: 'Aba e intervalo', se: ePl, req: 1, dica: 'Duas colunas: rótulos na primeira e números na segunda. Ex.: Página1!A2:B13. Até 40 linhas.' },
+    { k: 'dados', label: 'Dados', tipo: 'area', se: v => !ePl(v), req: 1, dica: 'Uma linha por ponto, no formato “Rótulo; valor”. Ex.: Janeiro; 42.' },
+    { k: 'unidade', label: 'Unidade', dica: 'Ex.: leads, %, R$. Pode ficar em branco.' },
+    { k: 'clienteId', label: 'Cliente relacionado', tipo: 'sel', ops: cliOps() },
+    { k: 'nota', label: 'O que o gráfico mostra', tipo: 'area' }],
+    salvar: v => {
+      const dados = [];
+      if (v.fonte === 'planilha') {
+        if (!plId(v.planilhaUrl)) return 'Não reconheci o link. Cole o endereço completo da planilha, que começa com docs.google.com/spreadsheets.';
+      } else {
+        for (const ln of v.dados.split('\n').map(s => s.trim()).filter(Boolean)) {
+          const k = Math.max(ln.lastIndexOf(';'), ln.lastIndexOf('\t')), r = k > 0 ? ln.slice(0, k).trim() : '', n = numero(ln.slice(k + 1));
+          if (!r || !isFinite(n)) return `Não entendi a linha “${ln}”. Use o formato “Rótulo; valor”, por exemplo “Janeiro; 42”.`;
+          dados.push({ r, v: n });
+        }
+        if (dados.length > 40) return 'Use no máximo 40 pontos por gráfico.';
+      }
+      return put('graficos', g?.id || newId(), { ...(g ? semId(g) : { autorId: me.id || '', criadoEm: Date.now() }), titulo: v.titulo, tipo: v.tipo, fonte: v.fonte, planilhaUrl: v.planilhaUrl || '', intervalo: v.intervalo || '', unidade: v.unidade, clienteId: v.clienteId, nota: v.nota, dados });
+    },
+    excluir: g && (() => del('graficos', g.id)) });
+}
 function fDoc(d) {
   openForm({ titulo: d ? 'Editar página' : 'Nova página', valores: d, campos: [
     { k: 'titulo', label: 'Título', req: 1 }, { k: 'corpo', label: 'Conteúdo', tipo: 'area', alto: 1 }],
@@ -537,6 +728,8 @@ const A = {
   'nova-tarefa': () => fTarefa(), 'edit-tarefa': d => fTarefa(byId('tarefas', d.id)),
   'mover': d => { const t = byId('tarefas', d.id); put('tarefas', t.id, { ...semId(t), coluna: d.para }); },
   'novo-doc': () => fDoc(), 'edit-doc': d => fDoc(byId('docs', d.id)),
+  'novo-grafico': () => fGrafico(), 'edit-grafico': d => fGrafico(byId('graficos', d.id)),
+  'ler-planilha': d => { const g = byId('graficos', d.id); if (g && mcp) { lerPlanilha(g, true); render(); } },
   'edit-sprint': () => openForm({ titulo: 'Configurar sprint', valores: S.sprint || {}, campos: [
     { k: 'nome', label: 'Nome do sprint', req: 1, dica: 'Ex.: Sprint 1.' }, { k: 'fim', label: 'Termina em', tipo: 'date' },
     { k: 'liderId', label: 'Líder da equipe', tipo: 'sel', ops: [['', 'Não definido'], ...equipeOps(S.sprint?.liderId)], dica: 'As tarefas criadas pelo líder aparecem marcadas como “Do líder” no quadro.' },
@@ -566,6 +759,7 @@ async function start() {
   render();
   const use = n => (window.claude?.use ? window.claude.use(n) : Promise.resolve(null));
   [db, user] = await Promise.all([use('db'), use('user')]);
+  use('mcp').then(m => { mcp = m; mcpPronto = true; render(); });
   if (user) { me = await user.me(); if ((await user.can('data.write')) === false) document.body.classList.add('ro'); }
   if (!db) { document.body.classList.add('ro'); aviso('Não foi possível conectar aos dados compartilhados. Abra esta página logado no claude.ai.'); return; }
   const timer = setTimeout(() => aviso('Os dados ainda não responderam. O que aparece pode estar desatualizado.'), 10000);
@@ -574,7 +768,9 @@ async function start() {
   const lista = s => s.docs.map(x => ({ id: x.id, ...x.data() }));
   let entrei = false;
   COLS.forEach(c => db.collection(c).onSnapshot(s => {
-    S[c] = lista(s); loaded[c] = true; ok(s); render();
+    S[c] = lista(s); loaded[c] = true;
+    if (c === 'indicadores') S[c].forEach(i => { if (ESCALA[i.tipo]) i.unidade = ''; });
+    ok(s); render();
     /* Registra quem abriu a central na lista da equipe, uma vez, para poder receber tarefas. */
     if (c === 'membros' && !entrei && me.id && !s.metadata.fromCache && !document.body.classList.contains('ro')) {
       entrei = true;
