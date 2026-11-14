@@ -161,6 +161,8 @@ dialog::backdrop { background: rgba(8, 20, 22, .55) }
     <a href="#insights">Insights</a><a href="#documentacao">Documentação</a><a href="#chat">Chat</a>
   </nav>
   <button class="btn mini" id="tema" type="button" style="margin-bottom:8px">Tema escuro</button>
+  <button class="btn mini" id="acessos" type="button" style="margin-bottom:8px" hidden>Acessos</button>
+  <button class="btn mini" id="sair" type="button" style="margin-bottom:8px" data-web="sair" hidden>Sair</button>
 </div></header>
 <div id="aviso" class="wrap" hidden></div>
 <main class="wrap" id="main"></main>
@@ -176,7 +178,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 const COLS = ['clientes', 'links', 'indicadores', 'insights', 'tarefas', 'docs', 'membros', 'graficos'];
-const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], graficos: [], chat: [], sprint: null };
+const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], graficos: [], permitidos: [], chat: [], sprint: null };
 const loaded = {};
 let mcp = null, db = null, user = null, me = { id: null }, P = {}, filtroIns = '', filtroSp = '', pedindoPerfis = false;
 
@@ -331,6 +333,7 @@ const ERRO_PL = {
   blocked_by_policy: 'A sua organização bloqueia o uso do Google Sheets nesta página.',
   tool_error: 'A planilha não pôde ser lida. Confira o link, o nome da aba e o intervalo, e se a sua conta Google tem acesso a ela.',
   server_unavailable: 'O Google Sheets não respondeu agora. Tente atualizar em instantes.',
+  gviz: 'A planilha não pôde ser lida. Confira o link, o nome da aba e o intervalo, e se ela está compartilhada como “Qualquer pessoa com o link”.',
 };
 function achaValores(p) {
   if (typeof p === 'string') { try { p = JSON.parse(p); } catch { return null; } }
@@ -351,7 +354,7 @@ function lerPlanilha(g, forcar) {
       try { r = await umaVez(); }
       catch (e) { if (!e?.retryable) throw e; await new Promise(ok => setTimeout(ok, Math.min(e.retryAfterMs || 1500, 8000) + Math.random() * 500)); r = await umaVez(); }
       const linhas = achaValores(r.payload) || [];
-      const dados = linhas.map(l => ({ r: String(l[0] ?? '').trim(), v: numero(l[1]) })).filter(d => d.r && isFinite(d.v)).slice(0, 40);
+      const dados = linhas.map(l => ({ r: String(l[0] ?? '').trim(), v: typeof l[1] === 'number' ? l[1] : numero(l[1]) })).filter(d => d.r && isFinite(d.v)).slice(0, 40);
       PL[k] = dados.length ? { dados, em: r.cache?.storedAt || Date.now() } : { erro: 'O intervalo não trouxe dados. Ele precisa ter duas colunas: rótulos na primeira e números na segunda.' };
     } catch (e) {
       PL[k] = { erro: ERRO_PL[e?.code] || 'Não foi possível ler a planilha agora. Tente atualizar em instantes.' };
@@ -387,7 +390,7 @@ function vInicio() {
       <li>Cadastre o cliente e o projeto em <a href="#clientes">Clientes</a>. Cada cliente vira uma pasta dentro da sua coordenadoria.</li>
       <li>Guarde na pasta os links de planilhas, documentos e formulários do projeto.</li>
       <li>Registre a linha de base do indicador que o cliente usa para medir sucesso, com a fase “Antes do projeto”, e o CSAT ao fim de cada macroetapa.</li>
-      <li>Defina a data do pós-venda. Ela aparece aqui quando estiver chegando.</li>
+      <li>Defina a data do pós-venda na ficha do cliente.</li>
       <li>Informe o NPS no final do projeto e de novo no pós-venda, junto com a nova medição do indicador de sucesso. A central calcula a variação e você anota os aprendizados em <a href="#insights">Insights</a>.</li>
     </ol><div>${btn('novo-cliente', 'Cadastrar primeiro cliente', '', 'pri')}</div></section>`;
     return h;
@@ -397,12 +400,6 @@ function vInicio() {
     <div class="card kpi"><span class="label">Em pós-venda</span><b>${S.clientes.filter(c => c.status === 'pos').length}</b></div>
     <div class="card kpi"><span class="label">NPS médio atual (1 a 10)</span><b>${npsMedio}</b></div>
     <div class="card kpi"><span class="label">Insights em aberto</span><b>${abertos}</b></div></div>`;
-
-  const pv = ativos.filter(c => c.posVendaEm).sort((a, b) => a.posVendaEm.localeCompare(b.posVendaEm));
-  h += `<section class="sec"><h2>Próximos pós-vendas</h2>` + (pv.length ? `<div class="list">` + pv.map(c => {
-    const d = dias(c.posVendaEm);
-    return `<div class="row"><a class="grow" href="#c-${c.id}">${esc(c.nome)}</a><span class="num">${fdata(c.posVendaEm)}</span>${d < 0 ? pill('Atrasado há ' + (-d) + ' d', 'ruim') : d === 0 ? pill('Hoje', 'av') : pill('Em ' + d + ' d', d <= 14 ? 'av' : '')}</div>`;
-  }).join('') + `</div>` : `<div class="empty">Nenhum pós-venda agendado. Defina a data do pós-venda na ficha do cliente.</div>`) + `</section>`;
 
   const comp = S.indicadores.map(i => [i, analise(i)]).filter(([, a]) => a.base);
   h += `<section class="sec"><div><h2>Antes e depois</h2><p class="sub">Primeira referência (antes do projeto; no NPS, o final do projeto) contra a medição mais recente, a do pós-venda quando existe.</p></div>` + (comp.length ? `<div class="tw"><table><thead><tr><th>Cliente</th><th>Indicador</th><th class="r">Referência</th><th class="r">Atual</th><th class="r">Variação</th></tr></thead><tbody>` + comp.map(([i, a]) =>
@@ -519,6 +516,8 @@ const rota = () => location.hash.slice(1) || 'inicio';
 let raf = 0;
 function render() { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }
 function draw() {
+  $('#nav').hidden = !!bloqueio;
+  if (bloqueio) { $('#chatview').hidden = true; $('#main').hidden = false; $('#main').innerHTML = bloqueio; return; }
   const r = rota(), aba = r.startsWith('c-') ? 'clientes' : r.startsWith('d-') ? 'documentacao' : (ROT[r] || r === 'chat' ? r : 'inicio');
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + aba));
   $('#main').hidden = r === 'chat'; $('#chatview').hidden = r !== 'chat';
@@ -579,7 +578,7 @@ $('#frm').addEventListener('submit', async e => {
     vals[c.k] = x;
   }
   try { const r = await formCfg.salvar(vals); if (typeof r === 'string') { err.textContent = r; return; } $('#dlg').close(); }
-  catch { err.textContent = 'Não foi possível salvar. Verifique se você tem permissão de contribuidor e tente de novo.'; }
+  catch { err.textContent = WEB ? 'Não foi possível salvar. Verifique a conexão e se a sua conta tem permissão para isso.' : 'Não foi possível salvar. Verifique se você tem permissão de contribuidor e tente de novo.'; }
 });
 
 /* ---------- ações ---------- */
@@ -755,30 +754,109 @@ $('#chatform').addEventListener('submit', async e => {
 });
 
 /* ---------- início ---------- */
+/* ---------- modo site (fora do claude.ai) ----------
+   A mesma página roda em dois lugares. Dentro do claude.ai ela usa o banco, o login e o conector do Claude.
+   Aberta como site comum (GitHub Pages), usa o Firebase: login com Google, banco Firestore com a mesma estrutura
+   de coleções, e as planilhas são lidas pelo link público do Google Sheets. */
+/* Configuração do projeto Firebase (Configurações do projeto → Seus apps → Configuração do SDK). Não é segredo:
+   quem protege os dados são as regras do Firestore. */
+const FIREBASE = null;
+const FB_VER = '10.12.5';
+let WEB = false, auth = null, bloqueio = '';
+const cartao = (t, p, extra = '') => `<section class="card sec" style="max-width:460px;margin:40px auto;text-align:center;align-items:center"><h1>${t}</h1><p class="sub">${p}</p>${extra}</section>`;
+const carrega = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+/* Lê um intervalo de uma planilha compartilhada por link, sem conector: o Google devolve os dados chamando a função `cb`. */
+function lerGviz(id, intervalo) {
+  return new Promise((ok, no) => {
+    const cb = 'gviz' + newId(), s = document.createElement('script'), k = intervalo.lastIndexOf('!');
+    const aba = k > 0 ? intervalo.slice(0, k).replace(/^'|'$/g, '') : '', faixa = k > 0 ? intervalo.slice(k + 1) : intervalo;
+    const fim = (f, x) => { clearTimeout(t); delete window[cb]; s.remove(); f(x); };
+    const t = setTimeout(() => fim(no, { code: 'gviz' }), 15000);
+    window[cb] = r => r?.status === 'ok' ? fim(ok, { payload: { values: (r.table?.rows || []).map(l => (l.c || []).map(c => !c ? '' : typeof c.v === 'number' ? c.v : (c.f ?? c.v ?? ''))) } }) : fim(no, { code: 'gviz' });
+    s.onerror = () => fim(no, { code: 'gviz' });
+    s.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=0${aba ? '&sheet=' + encodeURIComponent(aba) : ''}&range=${encodeURIComponent(faixa)}`;
+    document.head.appendChild(s);
+  });
+}
+async function startWeb() {
+  WEB = true;
+  if (!FIREBASE) { bloqueio = cartao('Configuração pendente', 'O site ainda não foi ligado ao banco de dados. Falta informar a configuração do Firebase no código.'); render(); return; }
+  bloqueio = cartao('Central CX', 'Carregando…'); render();
+  try { for (const m of ['app', 'auth', 'firestore']) await carrega(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${m}-compat.js`); }
+  catch { bloqueio = cartao('Sem conexão', 'Não foi possível carregar o site. Verifique a internet e recarregue a página.'); render(); return; }
+  firebase.initializeApp(FIREBASE); auth = firebase.auth();
+  auth.onAuthStateChanged(u => {
+    if (!u) {
+      if (db) { location.reload(); return; }
+      bloqueio = cartao('Central CX · Ayra', 'Entre com a sua conta Google para acessar a central da equipe.', `<button class="btn pri" data-web="entrar">Entrar com Google</button><div id="werr" class="sub" role="alert"></div>`); render(); return;
+    }
+    me = { id: u.uid, nome: u.displayName || u.email || '', email: (u.email || '').toLowerCase() };
+    db = firebase.firestore(); bloqueio = '';
+    mcp = { callTool: (_s, _t, inp) => lerGviz(inp.spreadsheetId, inp.range) }; mcpPronto = true;
+    $('#sair').hidden = false; $('#acessos').hidden = false;
+    ligar();
+  });
+}
+document.addEventListener('click', e => {
+  const w = e.target.closest('[data-web]')?.dataset.web; if (!w || !auth) return;
+  if (w === 'sair') auth.signOut();
+  if (w === 'entrar') auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(err => {
+    const el = $('#werr'); if (!el) return;
+    el.textContent = err?.code === 'auth/unauthorized-domain' ? 'Este endereço ainda não foi autorizado no Firebase (Authentication → Settings → Authorized domains).'
+      : ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(err?.code) ? '' : 'Não foi possível entrar. Tente de novo.';
+  });
+});
+/* Lista de e-mails liberados (só no modo site). As regras do Firestore só deixam o responsável pela central gravar aqui. */
+function fAcessos() {
+  openForm({ titulo: 'Quem pode acessar', valores: { emails: S.permitidos.map(p => p.id).sort().join('\n') }, campos: [
+    { k: 'emails', label: 'E-mails liberados', tipo: 'area', dica: 'Um e-mail de conta Google por linha. Só o responsável pela central consegue alterar esta lista, e a conta dele entra sempre.' }],
+    salvar: async v => {
+      const novos = [...new Set(v.emails.split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean))];
+      const ruim = novos.find(e => !/^[^@\s\/]+@[^@\s\/]+\.[^@\s\/]+$/.test(e));
+      if (ruim) return `“${ruim}” não parece um e-mail.`;
+      const antigos = S.permitidos.map(p => p.id);
+      for (const e of novos.filter(e => !antigos.includes(e))) await put('permitidos', e, { desde: Date.now() });
+      for (const e of antigos.filter(e => !novos.includes(e))) await del('permitidos', e);
+    } });
+}
+$('#acessos').addEventListener('click', () => db && fAcessos());
+
 async function start() {
   render();
-  const use = n => (window.claude?.use ? window.claude.use(n) : Promise.resolve(null));
-  [db, user] = await Promise.all([use('db'), use('user')]);
-  use('mcp').then(m => { mcp = m; mcpPronto = true; render(); });
+  if (!window.claude?.use) return startWeb();
+  [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+  window.claude.use('mcp').then(m => { mcp = m; mcpPronto = true; render(); });
   if (user) { me = await user.me(); if ((await user.can('data.write')) === false) document.body.classList.add('ro'); }
   if (!db) { document.body.classList.add('ro'); aviso('Não foi possível conectar aos dados compartilhados. Abra esta página logado no claude.ai.'); return; }
+  ligar();
+}
+/* Assina as coleções do banco. Vale para os dois modos: o Firestore e o banco do Claude têm a mesma interface. */
+function ligar() {
   const timer = setTimeout(() => aviso('Os dados ainda não responderam. O que aparece pode estar desatualizado.'), 10000);
   const ok = s => { if (!s.metadata.fromCache) { clearTimeout(timer); aviso(''); } };
-  const erro = () => { clearTimeout(timer); aviso('A conexão com os dados foi interrompida. Recarregue a página para tentar de novo.'); };
+  const erro = e => {
+    clearTimeout(timer);
+    if (WEB && e?.code === 'permission-denied') { aviso(''); bloqueio = cartao('Sem acesso', `A conta ${esc(me.email)} ainda não foi liberada para a central. Peça a liberação ao responsável e entre de novo.`, `<button class="btn" data-web="sair">Sair e trocar de conta</button>`); render(); return; }
+    aviso('A conexão com os dados foi interrompida. Recarregue a página para tentar de novo.');
+  };
   const lista = s => s.docs.map(x => ({ id: x.id, ...x.data() }));
   let entrei = false;
   COLS.forEach(c => db.collection(c).onSnapshot(s => {
     S[c] = lista(s); loaded[c] = true;
     if (c === 'indicadores') S[c].forEach(i => { if (ESCALA[i.tipo]) i.unidade = ''; });
+    /* No modo site os nomes vêm do cadastro de membros, gravado no primeiro acesso de cada pessoa. */
+    if (c === 'membros' && WEB) S[c].forEach(m => { P[m.id] = { name: m.nome || '' }; });
     ok(s); render();
     /* Registra quem abriu a central na lista da equipe, uma vez, para poder receber tarefas. */
     if (c === 'membros' && !entrei && me.id && !s.metadata.fromCache && !document.body.classList.contains('ro')) {
       entrei = true;
-      if (!byId('membros', me.id)) put('membros', me.id, { desde: Date.now() }).catch(() => {});
+      const eu = byId('membros', me.id);
+      if (WEB ? (!eu || eu.nome !== me.nome) : !eu) put('membros', me.id, WEB ? { desde: eu?.desde || Date.now(), nome: me.nome } : { desde: Date.now() }).catch(() => {});
     }
   }, erro));
   db.doc('config/sprint').onSnapshot(s => { S.sprint = s.exists ? s.data() : null; render(); }, erro);
   db.collection('chat').orderBy('ts', 'desc').limit(200).onSnapshot(s => { S.chat = lista(s); loaded.chat = true; render(); }, erro);
+  if (WEB) db.collection('permitidos').onSnapshot(s => { S.permitidos = lista(s); }, () => {});
 }
 start();
 </script>

@@ -1,0 +1,865 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0;padding:0}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Central CX Ayra</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+/* Marca Ayra: fundo branco, detalhes em vermelho e preto, fonte Cabin, faixa diagonal da capa dos manuais no topo.
+   Layout: barra fixa com abas no topo; cada aba é uma coluna de seções; clientes aparecem como pastas agrupadas por coordenadoria. */
+:root {
+  color-scheme: light;
+  --bg: #ffffff; --surface: #ffffff; --sunk: #f3f3f3;
+  --ink: #1b1c1c; --muted: #5d5f60; --line: #dcdcdc;
+  --accent: #b5202a; --accent-ink: #ffffff; --accent-soft: #f8e6e7;
+  --black: #2b2c2c;
+  --good: #1c7548; --good-soft: #dcefe4; --bad: #8c1820; --bad-soft: #f8e6e7;
+  --warn: #7a5200; --warn-soft: #f6ecd4;
+  --display: "Cabin", "Segoe UI", system-ui, sans-serif;
+  --body: "Cabin", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Cabin", system-ui, sans-serif;
+}
+
+/* Tema escuro: escolhido pelo botão do cabeçalho (atributo data-tema), nunca automático. */
+:root[data-tema="escuro"] {
+  color-scheme: dark;
+  --bg: #131414; --surface: #1c1d1d; --sunk: #262727;
+  --ink: #f2f2f2; --muted: #a6a8a9; --line: #3a3c3c;
+  --accent: #e5565e; --accent-ink: #190506; --accent-soft: #3d1a1d;
+  --black: #4a4c4d;
+  --good: #6fd09b; --good-soft: #17382a; --bad: #f29a93; --bad-soft: #43201d;
+  --warn: #e6b65c; --warn-soft: #3d3016;
+}
+:root[data-tema="escuro"] .brand img { filter: invert(1); mix-blend-mode: screen }
+:root[data-tema="escuro"] .faixa::before { background: #000 }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5 }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface) }
+.wrap { max-width: 1080px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2 }
+h1 { font-size: 1.75rem; font-weight: 700 } h2 { font-size: 1.15rem; font-weight: 700 } h3 { font-size: 1.02rem; font-weight: 600 }
+p { margin: 0 } a { color: var(--accent) }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--surface); border-bottom: 2px solid var(--black) }
+.topin { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding-block: 10px 0 }
+.faixa { position: relative; height: 46px; background: var(--surface); overflow: hidden }
+.faixa::before, .faixa::after { content: ""; position: absolute; inset: 0 }
+.faixa::before { background: var(--black); clip-path: polygon(0 0, 42% 0, 42% 30%, 0 100%) }
+.faixa::after { background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 100%) }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; padding-bottom: 8px; letter-spacing: .02em; text-transform: uppercase }
+.brand img { height: 38px; width: auto; display: block }
+.brand span { color: var(--accent) }
+nav { display: flex; gap: 2px; overflow-x: auto; min-width: 0; flex: 1 }
+nav a { padding: 8px 12px 10px; text-decoration: none; color: var(--muted); font-weight: 600; white-space: nowrap; border-bottom: 2px solid transparent }
+nav a:hover { color: var(--ink) }
+nav a.on { color: var(--ink); border-bottom-color: var(--accent) }
+
+main, #chatview { padding-block: 24px 56px; display: flex; flex-direction: column; gap: 28px }
+#aviso { margin-top: 16px }
+#aviso div { background: var(--warn-soft); color: var(--warn); padding: 10px 14px; border-radius: 6px }
+.sec { display: flex; flex-direction: column; gap: 12px; min-width: 0 }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap }
+.sub { color: var(--muted); font-size: .9rem }
+.label { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700 }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0 }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 8px }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; min-width: 0 }
+.row:first-child { border-top: 0 }
+.row .grow { flex: 1; min-width: 160px; overflow-wrap: anywhere }
+.empty { border: 1px dashed var(--line); border-radius: 8px; padding: 18px; color: var(--muted) }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums }
+
+.btn { font: inherit; font-weight: 600; font-size: .88rem; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer }
+.btn:hover { border-color: var(--accent); color: var(--accent) }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.btn.pri:hover { color: var(--accent-ink); filter: brightness(1.08) }
+.btn.mini { padding: 2px 8px; font-size: .8rem }
+.btn.danger { color: var(--bad) }
+.linkbtn { font: inherit; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; text-align: left; font-weight: 600 }
+.linkbtn:hover { color: var(--accent) }
+body.ro [data-w] { display: none }
+
+.pill { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--sunk); color: var(--muted); white-space: nowrap }
+.pill.ac { background: var(--black); color: #fff }
+.pill.bom { background: var(--good-soft); color: var(--good) }
+.pill.ruim { background: var(--bad-soft); color: var(--bad) }
+.pill.av { background: var(--warn-soft); color: var(--warn) }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px }
+.kpi { border-left: 3px solid var(--accent) }
+.kpi b { display: block; font-family: var(--display); font-size: 1.8rem; font-weight: 700; line-height: 1.1 }
+.folder { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ink); border-top: 3px solid var(--accent) }
+.folder:hover { border-color: var(--accent) }
+.folder .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 65ch }
+
+.tw { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px }
+table { border-collapse: collapse; width: 100%; font-size: .92rem }
+th, td { text-align: left; padding: 9px 14px; border-top: 1px solid var(--line); white-space: nowrap }
+thead th { border-top: 0; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+td.r, th.r { text-align: right }
+
+/* Gráficos: uma série só, na cor de destaque da marca; valores e rótulos sempre na cor do texto. */
+.chart { display: flex; flex-direction: column; gap: 12px }
+.bars { display: grid; grid-template-columns: minmax(84px, 36%) 1fr auto; gap: 8px 10px; align-items: center; font-size: .9rem }
+.bars > span:first-child, .bars .rot { overflow-wrap: anywhere; line-height: 1.25 }
+.bars .trk { position: relative; height: 14px }
+.bars .bar { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px }
+.bars .bar.neg { border-radius: 4px 0 0 4px }
+.bars .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--muted) }
+.lnc svg { width: 100%; height: auto; display: block }
+.lnc text { fill: var(--muted); font-size: 11px; font-family: var(--body) }
+.lnc .g { stroke: var(--line); stroke-width: 1 }
+.lnc .p { stroke: var(--accent); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round }
+.lnc .d { fill: var(--accent); stroke: var(--surface); stroke-width: 2 }
+.lnc .h { fill: transparent }
+.lnc .h:hover + .d { stroke: var(--ink) }
+details.dados { font-size: .86rem; color: var(--muted) }
+details.dados summary { cursor: pointer }
+details.dados div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 1px solid var(--line); max-width: 320px }
+.ind { display: flex; flex-direction: column; gap: 10px }
+.ba { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap }
+.ba div b { display: block; font-family: var(--mono); font-size: 1.25rem; font-weight: 500; font-variant-numeric: tabular-nums }
+.spark { color: var(--accent); margin-left: auto }
+.sub i, p.sub { font-style: normal }
+.meds { font-size: .86rem; border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px }
+.meds div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap }
+
+.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start }
+.col { background: var(--sunk); border-top: 3px solid var(--black); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px }
+.task { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow-wrap: anywhere }
+.task .meta, .ins .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: .82rem; color: var(--muted) }
+.ins { display: flex; flex-direction: column; gap: 8px }
+.ins p, .doc { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 70ch }
+@media (max-width: 720px) { .board { grid-template-columns: 1fr } }
+
+select, input, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; width: 100%; min-width: 0 }
+textarea { min-height: 110px; resize: vertical }
+.filter { width: auto }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); width: min(560px, calc(100% - 32px)); padding: 20px; max-height: 90vh }
+dialog::backdrop { background: rgba(8, 20, 22, .55) }
+#frm { display: flex; flex-direction: column; gap: 12px }
+#frm label { display: flex; flex-direction: column; gap: 4px; font-size: .86rem; font-weight: 500 }
+#frm small { color: var(--muted); font-weight: 400 }
+#ferr { color: var(--bad); font-size: .88rem }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px }
+.actions .sp { flex: 1 }
+
+#msgs { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; height: min(58vh, 520px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px }
+.msg { max-width: 70ch; overflow-wrap: anywhere }
+.msg .who { font-size: .78rem; color: var(--muted) }
+.msg.me .who { color: var(--accent) }
+#chatform { display: flex; gap: 8px }
+@media (prefers-reduced-motion: no-preference) { .btn, nav a { transition: color .12s, border-color .12s } }
+</style>
+
+<div class="faixa" aria-hidden="true"></div>
+<header class="top"><div class="wrap topin">
+  <div class="brand"><img src="data:image/png;base64,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" alt="Ayra Consultoria">Central <span>CX</span></div>
+  <nav id="nav" aria-label="Seções">
+    <a href="#inicio">Início</a><a href="#clientes">Clientes</a><a href="#sprint">Sprint</a>
+    <a href="#insights">Insights</a><a href="#documentacao">Documentação</a><a href="#chat">Chat</a>
+  </nav>
+  <button class="btn mini" id="tema" type="button" style="margin-bottom:8px">Tema escuro</button>
+  <button class="btn mini" id="acessos" type="button" style="margin-bottom:8px" hidden>Acessos</button>
+  <button class="btn mini" id="sair" type="button" style="margin-bottom:8px" data-web="sair" hidden>Sair</button>
+</div></header>
+<div id="aviso" class="wrap" hidden></div>
+<main class="wrap" id="main"></main>
+<section class="wrap" id="chatview" hidden>
+  <div class="head"><div><h1>Chat da equipe</h1><p class="sub">Recados rápidos entre quem tem acesso a esta central. Ficam guardadas as 200 mensagens mais recentes.</p></div></div>
+  <div id="msgs" aria-live="polite"></div>
+  <form id="chatform" data-w><input id="chatinput" maxlength="1000" placeholder="Escreva uma mensagem" autocomplete="off" aria-label="Mensagem"><button class="btn pri" type="submit">Enviar</button></form>
+</section>
+<dialog id="dlg"><form id="frm" novalidate></form></dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+const COLS = ['clientes', 'links', 'indicadores', 'insights', 'tarefas', 'docs', 'membros', 'graficos'];
+const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], graficos: [], permitidos: [], chat: [], sprint: null };
+const loaded = {};
+let mcp = null, db = null, user = null, me = { id: null }, P = {}, filtroIns = '', filtroSp = '', pedindoPerfis = false;
+
+const STATUS = { andamento: ['Em andamento', 'ac'], pos: ['Em pós-venda', 'av'], encerrado: ['Encerrado', ''] };
+const TLINK = { planilha: 'Planilha', documento: 'Documento', apresentacao: 'Apresentação', formulario: 'Formulário', pasta: 'Pasta', outro: 'Outro' };
+const FASE = { antes: 'Antes do projeto', durante: 'Durante', pos: 'Pós-venda' };
+/* O NPS só tem duas notas: no final do projeto e no pós-venda. */
+const FASE_TXT = { ...FASE, final: 'Final do projeto' };
+const TIND = { nps: 'NPS', csat: 'CSAT', resultado: 'Indicador de sucesso do cliente' };
+const TINS = { escopo: 'Novo escopo', projeto: 'Melhoria de projeto', interna: 'Iniciativa interna' };
+const SINS = { ideia: ['Ideia', ''], estudo: ['Em estudo', 'av'], proposto: ['Proposto', 'ac'], aprovado: ['Aprovado', 'bom'], descartado: ['Descartado', 'ruim'] };
+/* Escalas fixas de satisfação: NPS é nota de 1 a 10 e CSAT de 1 a 5. */
+const ESCALA = { nps: [1, 10], csat: [1, 5] };
+const foraEscala = (tipo, v) => { const e = ESCALA[tipo]; return e && (v < e[0] || v > e[1]) ? `O valor do ${TIND[tipo]} precisa estar entre ${e[0]} e ${e[1]}.` : ''; };
+const COORDS = ['Novos Negócios', 'Operações', 'Marketing'];
+const COLUNAS = [['afazer', 'A fazer'], ['fazendo', 'Fazendo'], ['feito', 'Feito']];
+const ops = o => Object.entries(o).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]);
+
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const hoje = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const fdata = s => s ? s.split('-').reverse().join('/') : '—';
+const dias = s => Math.round((Date.parse(s) - Date.parse(hoje())) / 864e5);
+const fv = (v, u) => nf.format(v) + (u === '%' ? '%' : u ? ' ' + u : '');
+const semId = o => { const c = { ...o }; delete c.id; return c; };
+const byId = (col, id) => S[col].find(x => x.id === id);
+const cliNome = id => byId('clientes', id)?.nome || '';
+const pill = (txt, tom) => `<span class="pill ${tom || ''}">${esc(txt)}</span>`;
+const btn = (act, label, attrs = '', cls = '') => `<button class="btn ${cls}" data-w data-act="${act}" ${attrs}>${label}</button>`;
+const quem = id => !id ? '' : id === 'todos' ? 'Toda a equipe' : (P[id]?.name || (id === me.id ? 'Você' : 'Alguém'));
+/* Equipe: quem já abriu a central como contribuidor. Devolve opções [id, nome], com "Eu" primeiro. */
+const equipeOps = extra => {
+  const outros = S.membros.map(m => m.id).filter(id => id !== me.id);
+  if (extra && extra !== 'todos' && extra !== me.id && !outros.includes(extra)) outros.push(extra);
+  return [...(me.id ? [[me.id, 'Eu']] : []), ...outros.map(id => [id, quem(id)]).sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))];
+};
+const cliOps = () => [['', 'Nenhum (geral)'], ...S.clientes.map(c => [c.id, c.nome])];
+
+/* ---------- tema ---------- */
+function setTema(t, guardar) {
+  if (t === 'escuro') document.documentElement.dataset.tema = 'escuro'; else delete document.documentElement.dataset.tema;
+  $('#tema').textContent = t === 'escuro' ? 'Tema claro' : 'Tema escuro';
+  if (guardar) try { localStorage.setItem('tema', t); } catch {}
+}
+try { setTema(localStorage.getItem('tema') === 'escuro' ? 'escuro' : 'claro'); } catch {}
+$('#tema').addEventListener('click', () => setTema(document.documentElement.dataset.tema === 'escuro' ? 'claro' : 'escuro', true));
+
+/* ---------- dados ---------- */
+const put = (col, id, data) => db.doc(col + '/' + id).set(data);
+const del = (col, id) => db.doc(col + '/' + id).delete();
+function aviso(t) { const a = $('#aviso'); a.hidden = !t; a.innerHTML = t ? `<div>${esc(t)}</div>` : ''; }
+
+function analise(ind) {
+  const ms = (ind.medicoes || []).map((m, i) => ({ ...m, i })).sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  const base = (ind.tipo === 'nps' ? (ms.find(m => m.fase === 'final') || ms.find(m => m.fase !== 'pos')) : ms.find(m => m.fase === 'antes')) || null;
+  const pos = [...ms].reverse().find(m => m.fase === 'pos') || null;
+  const ult = ms[ms.length - 1] || null;
+  const ref = pos || (ult && ult !== base ? ult : null);
+  let delta = null, pct = null, tom = '';
+  if (base && ref) {
+    delta = ref.valor - base.valor;
+    if (ind.tipo === 'resultado' && ind.unidade !== '%' && base.valor !== 0) pct = delta / Math.abs(base.valor) * 100;
+    tom = delta === 0 ? '' : ((ind.sentido === 'descer' ? delta < 0 : delta > 0) ? 'bom' : 'ruim');
+  }
+  return { ms, base, pos, ult, ref, delta, pct, tom };
+}
+function deltaTxt(ind, a) {
+  if (a.delta == null) return '';
+  const u = ind.unidade === '%' ? 'p.p.' : ind.unidade;
+  let t = (a.delta > 0 ? '+' : '') + nf.format(a.delta) + (u ? ' ' + u : '');
+  if (a.pct != null) t += ' (' + (a.pct > 0 ? '+' : '') + nf.format(Math.round(a.pct * 10) / 10) + '%)';
+  return t;
+}
+function spark(ms) {
+  if (ms.length < 2) return '';
+  const vs = ms.map(m => m.valor), mn = Math.min(...vs), mx = Math.max(...vs), W = 120, H = 34, p = 4;
+  const x = i => p + i * (W - 2 * p) / (vs.length - 1), y = v => mx === mn ? H / 2 : H - p - (v - mn) * (H - 2 * p) / (mx - mn);
+  const pts = vs.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução das medições"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${x(vs.length - 1).toFixed(1)}" cy="${y(vs[vs.length - 1]).toFixed(1)}" r="3" fill="currentColor"/></svg>`;
+}
+
+/* ---------- gráficos ---------- */
+const media = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+const r1 = v => Math.round(v * 10) / 10;
+/* Barras horizontais a partir do zero. items: [{ r: rótulo, v: valor, sub: detalhe }]; `teto` fixa o fim da escala (100 em NPS e CSAT). */
+function barras(items, un, teto) {
+  const vs = items.map(i => i.v), lo = Math.min(0, ...vs), hi = Math.max(teto || 0, 0, ...vs), span = (hi - lo) || 1, z = (0 - lo) / span * 100;
+  return `<div class="bars">` + items.map(i => {
+    const w = Math.abs(i.v) / span * 100, l = i.v < 0 ? z - w : z;
+    return `<span class="rot">${esc(i.r)}${i.sub ? ` <span class="sub">${esc(i.sub)}</span>` : ''}</span><span class="trk" title="${esc(i.r + ': ' + fv(i.v, un))}"><i class="zero" style="left:${z}%"></i><i class="bar ${i.v < 0 ? 'neg' : ''}" style="left:${l}%;width:${w}%"></i></span><b class="num">${esc(fv(i.v, un))}</b>`;
+  }).join('') + `</div>`;
+}
+/* Linha para evolução no tempo: uma série, pontos com dica ao passar o mouse e a lista dos dados logo abaixo. */
+function linha(items, un) {
+  const W = 600, H = 220, L = 46, R = 16, T = 14, B = 30, vs = items.map(i => i.v), mn = Math.min(...vs), mx = Math.max(...vs);
+  const lo = mn === mx ? mn - 1 : mn - (mx - mn) * .1, hi = mn === mx ? mx + 1 : mx + (mx - mn) * .1, n = items.length;
+  const x = i => n === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (n - 1), y = v => T + (hi - v) * (H - T - B) / (hi - lo);
+  const ticks = mn === mx ? [mn] : [mn, (mn + mx) / 2, mx], passo = Math.ceil(n / 6);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de linha com ${n} pontos">`;
+  ticks.forEach(t => { s += `<line class="g" x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/><text x="${L - 8}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${esc(nf.format(r1(t)))}</text>`; });
+  if (n > 1) s += `<polyline class="p" points="${items.map((d, i) => x(i).toFixed(1) + ',' + y(d.v).toFixed(1)).join(' ')}"/>`;
+  items.forEach((d, i) => {
+    const tip = `<title>${esc(d.r + ': ' + fv(d.v, un))}</title>`;
+    s += `<circle class="h" cx="${x(i).toFixed(1)}" cy="${y(d.v).toFixed(1)}" r="13">${tip}</circle><circle class="d" cx="${x(i).toFixed(1)}" cy="${y(d.v).toFixed(1)}" r="4.5" pointer-events="none"/>`;
+    if (i % passo === 0 || i === n - 1) {
+      if (i === n - 1 && i % passo !== 0 && (n - 1) % passo < passo / 2 && n > 2) return;
+      const r = d.r.length > 12 ? d.r.slice(0, 11) + '…' : d.r;
+      s += `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="${n > 1 && i === 0 ? 'start' : n > 1 && i === n - 1 ? 'end' : 'middle'}">${esc(r)}</text>`;
+    }
+  });
+  return `<div class="lnc">${s}</svg></div><details class="dados"><summary>Ver dados</summary>${items.map(d => `<div><span>${esc(d.r)}</span><b class="num">${esc(fv(d.v, un))}</b></div>`).join('')}</details>`;
+}
+/* Painel automático de satisfação: usa a medição mais recente de cada NPS e CSAT cadastrado nas pastas dos clientes. */
+function satisfacao() {
+  const com = tipo => S.indicadores.filter(i => i.tipo === tipo).map(i => [i, analise(i)]).filter(([, a]) => a.ult);
+  const nps = com('nps'), csat = com('csat');
+  if (!nps.length && !csat.length) return `<div class="empty">Os gráficos aparecem aqui quando houver medições de NPS ou CSAT registradas nas pastas dos clientes.</div>`;
+  const m = xs => xs.length ? nf.format(r1(media(xs))) : '—';
+  const antes = nps.map(([, a]) => a.base?.valor).filter(v => v != null), pos = nps.map(([, a]) => a.pos?.valor).filter(v => v != null);
+  const npsItems = nps.map(([i, a]) => ({ r: cliNome(i.clienteId) || 'Sem cliente', v: a.ult.valor, sub: FASE_TXT[a.ult.fase] || '' })).sort((a, b) => b.v - a.v);
+  const g = {};
+  csat.forEach(([i, a]) => (g[i.macroetapa || 'Sem macroetapa'] ||= []).push(a.ult.valor));
+  const csatItems = Object.keys(g).sort((a, b) => a.localeCompare(b, 'pt-BR')).map(r => ({ r, v: r1(media(g[r])), sub: g[r].length + (g[r].length === 1 ? ' projeto' : ' projetos') }));
+  return `<div class="kpis">
+    <div class="card kpi"><span class="label">NPS médio no final do projeto (1 a 10)</span><b>${m(antes)}</b></div>
+    <div class="card kpi"><span class="label">NPS médio no pós-venda (1 a 10)</span><b>${m(pos)}</b></div>
+    <div class="card kpi"><span class="label">CSAT médio (1 a 5)</span><b>${csat.length ? m(csat.map(([, a]) => a.ult.valor)) : '—'}</b></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))">
+    <div class="card chart"><div><h3>NPS por cliente</h3><span class="sub">Medição mais recente de cada cliente, em nota de 1 a 10.</span></div>${npsItems.length ? barras(npsItems, '', 10) : '<span class="sub">Nenhum NPS medido ainda.</span>'}</div>
+    <div class="card chart"><div><h3>CSAT por macroetapa</h3><span class="sub">Média, em nota de 1 a 5, entre os projetos que já avaliaram cada macroetapa.</span></div>${csatItems.length ? barras(csatItems, '', 5) : '<span class="sub">Nenhum CSAT medido ainda.</span>'}</div></div>`;
+}
+/* Número digitado ou vindo da planilha no padrão brasileiro: "1.234,5", "42%", "R$ 300" e também "7.5". */
+function numero(t) {
+  t = String(t ?? '').replace(/[^\d.,-]/g, '');
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+  return parseFloat(t);
+}
+/* Gráficos ligados ao Google Sheets: os dados não ficam guardados na central, são lidos da planilha com o conector
+   Google Sheets de quem está vendo. PL guarda o estado de cada leitura; as leituras rodam em fila, uma por vez. */
+const SHEETS = 'Google Sheets', PL = {};
+let mcpPronto = false, filaPl = Promise.resolve();
+const plId = url => (String(url || '').match(/\/d\/([\w-]{20,})/) || String(url || '').match(/^([\w-]{20,})$/) || [])[1] || '';
+const plChave = g => g.id + '|' + g.planilhaUrl + '|' + g.intervalo;
+const ERRO_PL = {
+  server_not_connected: 'Adicione o conector Google Sheets em claude.ai, em Configurações → Conectores, para ver este gráfico.',
+  selection_required: 'Você tem mais de um conector Google Sheets. Escolha qual usar no aviso do claude.ai e atualize.',
+  needs_reauth: 'O acesso ao Google Sheets expirou. Reconecte o conector em claude.ai, em Configurações → Conectores.',
+  not_in_manifest: 'O uso do Google Sheets não foi permitido para esta página. Permita no menu de permissões da página e atualize.',
+  approval_required: 'A leitura da planilha precisa da sua aprovação. Clique em “Atualizar” e permita o acesso.',
+  consent_required: 'A leitura da planilha precisa da sua aprovação. Clique em “Atualizar” e permita o acesso.',
+  not_granted: 'O uso do Google Sheets não foi permitido para esta página.',
+  blocked_by_policy: 'A sua organização bloqueia o uso do Google Sheets nesta página.',
+  tool_error: 'A planilha não pôde ser lida. Confira o link, o nome da aba e o intervalo, e se a sua conta Google tem acesso a ela.',
+  server_unavailable: 'O Google Sheets não respondeu agora. Tente atualizar em instantes.',
+  gviz: 'A planilha não pôde ser lida. Confira o link, o nome da aba e o intervalo, e se ela está compartilhada como “Qualquer pessoa com o link”.',
+};
+function achaValores(p) {
+  if (typeof p === 'string') { try { p = JSON.parse(p); } catch { return null; } }
+  if (Array.isArray(p)) return p.every(Array.isArray) ? p : null;
+  if (!p || typeof p !== 'object') return null;
+  if (Array.isArray(p.values)) return p.values;
+  for (const k of Object.keys(p)) { const r = achaValores(p[k]); if (r) return r; }
+  return null;
+}
+function lerPlanilha(g, forcar) {
+  const k = plChave(g), id = plId(g.planilhaUrl);
+  if (!id || !g.intervalo) { PL[k] = { erro: 'Informe o link da planilha e o intervalo em “Editar”.' }; return; }
+  PL[k] = { ...(PL[k] || {}), lendo: true, erro: '' };
+  const umaVez = () => mcp.callTool(SHEETS, 'get_values', { spreadsheetId: id, range: g.intervalo }, forcar ? { cache: { refresh: true } } : undefined);
+  filaPl = filaPl.then(async () => {
+    try {
+      let r;
+      try { r = await umaVez(); }
+      catch (e) { if (!e?.retryable) throw e; await new Promise(ok => setTimeout(ok, Math.min(e.retryAfterMs || 1500, 8000) + Math.random() * 500)); r = await umaVez(); }
+      const linhas = achaValores(r.payload) || [];
+      const dados = linhas.map(l => ({ r: String(l[0] ?? '').trim(), v: typeof l[1] === 'number' ? l[1] : numero(l[1]) })).filter(d => d.r && isFinite(d.v)).slice(0, 40);
+      PL[k] = dados.length ? { dados, em: r.cache?.storedAt || Date.now() } : { erro: 'O intervalo não trouxe dados. Ele precisa ter duas colunas: rótulos na primeira e números na segunda.' };
+    } catch (e) {
+      PL[k] = { erro: ERRO_PL[e?.code] || 'Não foi possível ler a planilha agora. Tente atualizar em instantes.' };
+    }
+    render();
+  });
+}
+function grafCard(g) {
+  const pl = g.fonte === 'planilha', det = [cliNome(g.clienteId), g.unidade ? 'em ' + g.unidade : ''].filter(Boolean).join(' · ');
+  let d = g.dados || [], corpo = '', rod = '';
+  if (pl) {
+    const k = plChave(g);
+    if (mcpPronto && mcp && !PL[k]) lerPlanilha(g);
+    const st = PL[k] || {};
+    d = st.dados || [];
+    if (mcpPronto && !mcp) corpo = `<span class="sub">Este gráfico lê uma planilha do Google Sheets. Abra a central no claude.ai, com o conector Google Sheets ativo, para ver os dados.</span>`;
+    else if (st.erro) corpo = `<span class="sub">${esc(st.erro)}</span>`;
+    else if (!d.length) corpo = `<span class="sub">Lendo a planilha…</span>`;
+    rod = `<div class="meta sub" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${plId(g.planilhaUrl) ? `<a href="https://docs.google.com/spreadsheets/d/${esc(plId(g.planilhaUrl))}" target="_blank" rel="noopener">Abrir planilha</a>` : ''}<span>${esc(g.intervalo || '')}</span>${st.em ? `<span>lido às ${new Date(st.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>` : ''}${mcp ? `<button class="btn mini" data-act="ler-planilha" data-id="${g.id}" ${st.lendo ? 'disabled' : ''}>${st.lendo ? 'Lendo…' : 'Atualizar'}</button>` : ''}</div>`;
+  } else if (!d.length) corpo = '<span class="sub">Sem dados.</span>';
+  return `<div class="card chart"><div class="head"><div><h3>${esc(g.titulo)}</h3>${det ? `<span class="sub">${esc(det)}</span>` : ''}</div>${btn('edit-grafico', 'Editar', `data-id="${g.id}"`, 'mini')}</div>${corpo || (g.tipo === 'linha' ? linha(d, g.unidade) : barras(d, g.unidade))}${rod}${g.nota ? `<p class="sub doc">${esc(g.nota)}</p>` : ''}</div>`;
+}
+
+/* ---------- telas ---------- */
+function vInicio() {
+  const ativos = S.clientes.filter(c => c.status !== 'encerrado');
+  const nps = S.indicadores.filter(i => i.tipo === 'nps').map(i => analise(i).ult).filter(Boolean);
+  const npsMedio = nps.length ? nf.format(Math.round(nps.reduce((s, m) => s + m.valor, 0) / nps.length * 10) / 10) : '—';
+  const abertos = S.insights.filter(i => !['aprovado', 'descartado'].includes(i.status)).length;
+  let h = `<div class="head"><div><h1>Visão geral</h1><p class="sub">Acompanhamento de clientes, pós-venda e análise de indicadores da Ayra Consultoria, Empresa Júnior de Gestão de Negócios da UFRJ.</p></div></div>`;
+  if (!S.clientes.length) {
+    h += `<section class="card sec"><h2>Por onde começar</h2><ol class="steps">
+      <li>Cadastre o cliente e o projeto em <a href="#clientes">Clientes</a>. Cada cliente vira uma pasta dentro da sua coordenadoria.</li>
+      <li>Guarde na pasta os links de planilhas, documentos e formulários do projeto.</li>
+      <li>Registre a linha de base do indicador que o cliente usa para medir sucesso, com a fase “Antes do projeto”, e o CSAT ao fim de cada macroetapa.</li>
+      <li>Defina a data do pós-venda na ficha do cliente.</li>
+      <li>Informe o NPS no final do projeto e de novo no pós-venda, junto com a nova medição do indicador de sucesso. A central calcula a variação e você anota os aprendizados em <a href="#insights">Insights</a>.</li>
+    </ol><div>${btn('novo-cliente', 'Cadastrar primeiro cliente', '', 'pri')}</div></section>`;
+    return h;
+  }
+  h += `<div class="kpis">
+    <div class="card kpi"><span class="label">Clientes ativos</span><b>${ativos.length}</b></div>
+    <div class="card kpi"><span class="label">Em pós-venda</span><b>${S.clientes.filter(c => c.status === 'pos').length}</b></div>
+    <div class="card kpi"><span class="label">NPS médio atual (1 a 10)</span><b>${npsMedio}</b></div>
+    <div class="card kpi"><span class="label">Insights em aberto</span><b>${abertos}</b></div></div>`;
+
+  const comp = S.indicadores.map(i => [i, analise(i)]).filter(([, a]) => a.base);
+  h += `<section class="sec"><div><h2>Antes e depois</h2><p class="sub">Primeira referência (antes do projeto; no NPS, o final do projeto) contra a medição mais recente, a do pós-venda quando existe.</p></div>` + (comp.length ? `<div class="tw"><table><thead><tr><th>Cliente</th><th>Indicador</th><th class="r">Referência</th><th class="r">Atual</th><th class="r">Variação</th></tr></thead><tbody>` + comp.map(([i, a]) =>
+    `<tr><td><a href="#c-${i.clienteId}">${esc(cliNome(i.clienteId) || '—')}</a></td><td>${esc(i.nome)}</td><td class="r num">${fv(a.base.valor, i.unidade)}</td><td class="r num">${a.ref ? fv(a.ref.valor, i.unidade) : '—'}</td><td class="r">${a.ref ? pill(deltaTxt(i, a), a.tom) : '<span class="sub">aguardando nova medição</span>'}</td></tr>`).join('') + `</tbody></table></div>`
+    : `<div class="empty">Ainda não há indicadores com linha de base. Registre uma medição com a fase “Antes do projeto” na pasta do cliente.</div>`) + `</section>`;
+
+  const tf = S.tarefas.filter(t => t.coluna !== 'feito').slice(0, 6);
+  h += `<section class="sec"><div class="head"><h2>Tarefas em aberto${S.sprint?.nome ? ' · ' + esc(S.sprint.nome) : ''}</h2><a href="#sprint">Abrir o sprint</a></div>` + (tf.length ? `<div class="list">` + tf.map(t =>
+    `<div class="row"><span class="grow">${esc(t.titulo)}</span>${t.responsavelId ? `<span class="sub">${esc(quem(t.responsavelId))}</span>` : ''}${pill(t.coluna === 'fazendo' ? 'Fazendo' : 'A fazer', t.coluna === 'fazendo' ? 'ac' : '')}</div>`).join('') + `</div>`
+    : `<div class="empty">Nenhuma tarefa em aberto.</div>`) + `</section>`;
+  return h;
+}
+
+function vClientes() {
+  let h = `<div class="head"><div><h1>Clientes</h1><p class="sub">Uma pasta por cliente, agrupadas por coordenadoria. Dentro de cada pasta ficam os links, os indicadores e os insights do projeto.</p></div>${btn('novo-cliente', 'Novo cliente', '', 'pri')}</div>`;
+  if (!S.clientes.length) return h + `<div class="empty">Nenhum cliente cadastrado ainda.</div>`;
+  const grupos = {};
+  S.clientes.forEach(c => (grupos[c.coordenadoria || 'Sem coordenadoria'] ||= []).push(c));
+  Object.keys(grupos).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(g => {
+    h += `<section class="sec"><span class="label">${esc(g)}</span><div class="grid">` + grupos[g].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(c => {
+      const st = STATUS[c.status] || STATUS.andamento;
+      const nl = S.links.filter(l => l.clienteId === c.id).length, ni = S.indicadores.filter(i => i.clienteId === c.id).length;
+      return `<a class="card folder" href="#c-${c.id}"><h3>${esc(c.nome)}</h3><span class="sub">${esc(c.projeto || 'Projeto sem nome')}</span><div class="meta">${pill(st[0], st[1])}<span class="sub">${nl} ${nl === 1 ? 'link' : 'links'} · ${ni} ${ni === 1 ? 'indicador' : 'indicadores'}</span></div></a>`;
+    }).join('') + `</div></section>`;
+  });
+  return h;
+}
+
+function linkRows(ls) {
+  return `<div class="list">` + ls.map(l => `<div class="row">${pill(TLINK[l.tipo] || 'Outro')}<a class="grow" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.titulo)}</a>${btn('edit-link', 'Editar', `data-id="${l.id}"`, 'mini')}</div>`).join('') + `</div>`;
+}
+function insCard(i, mostraCli) {
+  const st = SINS[i.status] || SINS.ideia;
+  return `<div class="card ins"><div class="head"><h3>${esc(i.titulo)}</h3>${btn('edit-insight', 'Editar', `data-id="${i.id}"`, 'mini')}</div>${i.texto ? `<p>${esc(i.texto)}</p>` : ''}<div class="meta">${pill(TINS[i.tipo] || 'Ideia')}${pill(st[0], st[1])}${mostraCli && cliNome(i.clienteId) ? `<a href="#c-${i.clienteId}">${esc(cliNome(i.clienteId))}</a>` : ''}${i.autorId ? `<span>por ${esc(quem(i.autorId))}</span>` : ''}</div></div>`;
+}
+
+function vCliente(id) {
+  const c = byId('clientes', id);
+  if (!c) return `<div class="empty">${loaded.clientes ? 'Este cliente não existe mais.' : 'Carregando…'} <a href="#clientes">Voltar para Clientes</a></div>`;
+  const st = STATUS[c.status] || STATUS.andamento;
+  let h = `<div class="sec"><a href="#clientes" class="sub">← Clientes${c.coordenadoria ? ' · ' + esc(c.coordenadoria) : ''}</a>
+    <div class="head"><div><h1>${esc(c.nome)}</h1><p class="sub">${esc(c.projeto || 'Projeto sem nome')}</p></div>${btn('edit-cliente', 'Editar ficha', `data-id="${id}"`)}</div>
+    <div class="card sec"><div class="folder" style="border:0;flex-direction:row;flex-wrap:wrap;gap:8px 20px;align-items:center">${pill(st[0], st[1])}<span><span class="label">Início</span> <span class="num">${fdata(c.inicio)}</span></span><span><span class="label">Pós-venda</span> <span class="num">${fdata(c.posVendaEm)}</span></span></div>
+    <div><span class="label">O que o cliente considera sucesso</span><p class="doc">${c.objetivo ? esc(c.objetivo) : '<span class="sub">Ainda não registrado.</span>'}</p></div></div></div>`;
+
+  const ls = S.links.filter(l => l.clienteId === id);
+  h += `<section class="sec"><div class="head"><h2>Links e documentos</h2>${btn('novo-link', 'Adicionar link', `data-cli="${id}"`)}</div>${ls.length ? linkRows(ls) : `<div class="empty">Guarde aqui as planilhas, documentos e formulários deste projeto.</div>`}</section>`;
+
+  const inds = S.indicadores.filter(i => i.clienteId === id);
+  h += `<section class="sec"><div class="head"><h2>Indicadores</h2>${btn('novo-ind', 'Novo indicador', `data-cli="${id}"`)}</div>` + (inds.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">` + inds.map(i => {
+    const a = analise(i);
+    return `<div class="card ind"><div class="head"><div><h3>${esc(i.nome)}</h3><span class="sub">${i.sentido === 'descer' ? 'Quanto menor, melhor' : 'Quanto maior, melhor'}</span></div>${btn('edit-ind', 'Editar', `data-id="${i.id}"`, 'mini')}</div>
+      <div class="ba"><div><span class="label">${i.tipo === 'nps' ? 'Final do projeto' : 'Antes'}</span><b>${a.base ? fv(a.base.valor, i.unidade) : '—'}</b></div><div><span class="label">${a.pos ? 'Pós-venda' : 'Atual'}</span><b>${a.ref ? fv(a.ref.valor, i.unidade) : '—'}</b></div>${a.delta != null ? pill(deltaTxt(i, a), a.tom) : ''}${spark(a.ms)}</div>
+      <div class="meds">${a.ms.length ? a.ms.map(m => `<div><span class="num">${fdata(m.data)}</span><span class="sub">${esc(FASE_TXT[m.fase] || '')}</span><b class="num">${fv(m.valor, i.unidade)}</b>${m.obs ? `<span class="sub">${esc(m.obs)}</span>` : ''}${i.tipo === 'nps' ? '' : btn('del-med', 'Remover', `data-id="${i.id}" data-i="${m.i}"`, 'mini danger')}</div>`).join('') : `<span class="sub">${i.tipo === 'nps' ? 'Sem notas ainda. Use “Editar” para informar o NPS do final do projeto e o do pós-venda.' : 'Sem medições. Comece pela linha de base.'}</span>`}
+      ${i.tipo === 'nps' ? '' : `<div>${btn('nova-med', 'Registrar medição', `data-id="${i.id}"`, 'mini')}</div>`}</div></div>`;
+  }).join('') + `</div>` : `<div class="empty">Crie o NPS (duas notas de 1 a 10: no final do projeto e no pós-venda), o CSAT (de 1 a 5, por macroetapa) e o indicador de sucesso do cliente, com a medição de antes do projeto e a do pós-venda.</div>`) + `</section>`;
+
+  const ins = S.insights.filter(i => i.clienteId === id);
+  h += `<section class="sec"><div class="head"><h2>Insights deste cliente</h2>${btn('novo-insight', 'Registrar insight', `data-cli="${id}"`)}</div>${ins.length ? `<div class="grid">` + ins.map(i => insCard(i, false)).join('') + `</div>` : `<div class="empty">O que os números deste projeto ensinam? Anote ideias de escopo, melhorias e iniciativas.</div>`}</section>`;
+  return h;
+}
+
+function vSprint() {
+  const sp = S.sprint, lider = sp?.liderId || '';
+  const ve = t => !filtroSp || t.responsavelId === filtroSp || t.responsavelId === 'todos';
+  let h = `<div class="head"><div><h1>${esc(sp?.nome || 'Sprint')}</h1><p class="sub">${sp?.fim ? 'Termina em ' + fdata(sp.fim) + '. ' : ''}${esc(sp?.meta || 'Defina o nome, o prazo e a meta do sprint atual.')}</p></div><div class="actions">${btn('edit-sprint', 'Configurar sprint')}${btn('nova-tarefa', 'Nova tarefa', '', 'pri')}</div></div>
+    <div class="head"><p class="sub">Quadro único da equipe: todos veem e atualizam as mesmas tarefas.${lider ? ' Líder: ' + esc(quem(lider)) + '.' : ''}</p>
+    <select id="filtro-sp" class="filter" aria-label="Filtrar por pessoa"><option value="">Todas as tarefas</option>${equipeOps(filtroSp).map(([id, n]) => `<option value="${esc(id)}" ${filtroSp === id ? 'selected' : ''}>${id === me.id ? 'Minhas tarefas' : 'Tarefas de ' + esc(n)}</option>`).join('')}</select></div><div class="board">`;
+  COLUNAS.forEach(([k, nome], ci) => {
+    const ts = S.tarefas.filter(t => (t.coluna || 'afazer') === k && ve(t));
+    h += `<div class="col"><span class="label">${nome} · ${ts.length}</span>` + (ts.map(t => `<div class="task"><button class="linkbtn" data-act="edit-tarefa" data-id="${t.id}">${esc(t.titulo)}</button>
+      <div class="meta">${lider && t.criadoPor === lider ? pill('Do líder', 'av') : ''}${t.responsavelId === 'todos' ? pill('Toda a equipe', 'ac') : t.responsavelId ? `<span>${esc(quem(t.responsavelId))}</span>` : ''}${cliNome(t.clienteId) ? pill(cliNome(t.clienteId)) : ''}${t.prazo ? `<span class="num">${fdata(t.prazo)}</span>` : ''}</div>
+      <div class="actions">${ci > 0 ? btn('mover', '← ' + COLUNAS[ci - 1][1], `data-id="${t.id}" data-para="${COLUNAS[ci - 1][0]}"`, 'mini') : ''}${ci < 2 ? btn('mover', COLUNAS[ci + 1][1] + ' →', `data-id="${t.id}" data-para="${COLUNAS[ci + 1][0]}"`, 'mini') : ''}</div></div>`).join('') || `<span class="sub">Nada aqui.</span>`) + `</div>`;
+  });
+  return h + `</div>`;
+}
+
+function vInsights() {
+  const ls = S.insights.filter(i => !filtroIns || i.status === filtroIns).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  const gs = [...S.graficos].sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  return `<div class="head"><div><h1>Insights</h1><p class="sub">Os números de satisfação, os gráficos da equipe e as ideias que saem da análise: novos escopos, melhorias de projeto e iniciativas internas.</p></div>${btn('novo-insight', 'Registrar insight', '', 'pri')}</div>
+    <section class="sec"><div><h2>Indicadores de satisfação</h2><p class="sub">Calculados automaticamente a partir das medições registradas nas pastas dos clientes.</p></div>${satisfacao()}</section>
+    <section class="sec"><div class="head"><div><h2>Gráficos da equipe</h2><p class="sub">Gráficos ligados a uma planilha do Google Sheets: informe o link e o intervalo, e a central lê os dados direto de lá.</p></div>${btn('novo-grafico', 'Inserir gráfico')}</div>
+    ${gs.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))">` + gs.map(grafCard).join('') + `</div>` : `<div class="empty">Nenhum gráfico inserido ainda.</div>`}</section>
+    <section class="sec"><div class="head"><h2>Ideias e insights</h2><select id="filtro-ins" class="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${ops(SINS).map(([k, v]) => `<option value="${k}" ${filtroIns === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    ${ls.length ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))">` + ls.map(i => insCard(i, true)).join('') + `</div>` : `<div class="empty">${S.insights.length ? 'Nenhum insight nesta situação.' : 'Nenhum insight registrado ainda.'}</div>`}</section>`;
+}
+
+function vDocs() {
+  const gerais = S.links.filter(l => !l.clienteId), grupos = {};
+  gerais.forEach(l => (grupos[l.grupo || 'Geral'] ||= []).push(l));
+  let h = `<div class="head"><div><h1>Documentação</h1><p class="sub">Como o cargo funciona, processos e modelos. Os links de cada projeto ficam na pasta do cliente.</p></div></div>
+    <section class="sec"><div class="head"><h2>Páginas</h2>${btn('novo-doc', 'Nova página')}</div>${S.docs.length ? `<div class="list">` + [...S.docs].sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR')).map(d => `<div class="row"><a class="grow" href="#d-${d.id}">${esc(d.titulo)}</a><span class="sub">${d.atualizadoEm ? 'Atualizada em ' + new Date(d.atualizadoEm).toLocaleDateString('pt-BR') : ''}</span></div>`).join('') + `</div>` : `<div class="empty">Nenhuma página ainda. Escreva aqui o passo a passo do acompanhamento, do pós-venda e da análise.</div>`}</section>
+    <section class="sec"><div class="head"><div><h2>Links gerais</h2><p class="sub">Materiais de coordenadorias e da equipe que não pertencem a um cliente só.</p></div>${btn('novo-link', 'Adicionar link', 'data-cli=""')}</div>`;
+  const ks = Object.keys(grupos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  h += ks.length ? ks.map(g => `<span class="label">${esc(g)}</span>${linkRows(grupos[g])}`).join('') : `<div class="empty">Nenhum link geral ainda.</div>`;
+  return h + `</section>`;
+}
+function vDoc(id) {
+  const d = byId('docs', id);
+  if (!d) return `<div class="empty">${loaded.docs ? 'Esta página não existe mais.' : 'Carregando…'} <a href="#documentacao">Voltar para Documentação</a></div>`;
+  return `<div class="sec"><a href="#documentacao" class="sub">← Documentação</a><div class="head"><h1>${esc(d.titulo)}</h1>${btn('edit-doc', 'Editar', `data-id="${id}"`)}</div><div class="card"><div class="doc">${esc(d.corpo || '')}</div></div></div>`;
+}
+
+function renderChat() {
+  const box = $('#msgs'), ms = [...S.chat].sort((a, b) => a.ts - b.ts);
+  box.innerHTML = ms.length ? ms.map(m => `<div class="msg ${m.autorId && m.autorId === me.id ? 'me' : ''}"><div class="who">${esc(quem(m.autorId) || 'Alguém')} · ${new Date(m.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>${esc(m.texto)}</div>`).join('') : `<span class="sub">${loaded.chat || !db ? 'Nenhuma mensagem ainda. Escreva a primeira.' : 'Carregando…'}</span>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ---------- render e rotas ---------- */
+const ROT = { inicio: vInicio, clientes: vClientes, sprint: vSprint, insights: vInsights, documentacao: vDocs };
+const rota = () => location.hash.slice(1) || 'inicio';
+let raf = 0;
+function render() { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }
+function draw() {
+  $('#nav').hidden = !!bloqueio;
+  if (bloqueio) { $('#chatview').hidden = true; $('#main').hidden = false; $('#main').innerHTML = bloqueio; return; }
+  const r = rota(), aba = r.startsWith('c-') ? 'clientes' : r.startsWith('d-') ? 'documentacao' : (ROT[r] || r === 'chat' ? r : 'inicio');
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + aba));
+  $('#main').hidden = r === 'chat'; $('#chatview').hidden = r !== 'chat';
+  if (r === 'chat') renderChat();
+  else $('#main').innerHTML = r.startsWith('c-') ? vCliente(r.slice(2)) : r.startsWith('d-') ? vDoc(r.slice(2)) : (ROT[r] || vInicio)();
+  perfis();
+}
+function perfis() {
+  if (!user || pedindoPerfis) return;
+  const ids = new Set();
+  S.insights.forEach(i => i.autorId && ids.add(i.autorId)); S.tarefas.forEach(t => { t.responsavelId && ids.add(t.responsavelId); t.criadoPor && ids.add(t.criadoPor); }); S.chat.forEach(m => m.autorId && ids.add(m.autorId));
+  S.membros.forEach(m => ids.add(m.id)); S.sprint?.liderId && ids.add(S.sprint.liderId); me.id && ids.add(me.id); ids.delete('todos');
+  const falta = [...ids].filter(i => !(i in P));
+  if (!falta.length) return;
+  pedindoPerfis = true;
+  user.profiles(falta).then(ps => { falta.forEach(i => P[i] = ps[i] || { name: '' }); pedindoPerfis = false; render(); });
+}
+addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
+
+/* ---------- formulário genérico ---------- */
+let formCfg = null;
+function openForm(cfg) {
+  formCfg = cfg; const v = cfg.valores || {};
+  $('#frm').innerHTML = `<h2>${esc(cfg.titulo)}</h2>` + cfg.campos.map(c => {
+    const val = v[c.k] ?? c.padrao ?? '', id = 'f-' + c.k;
+    let ctl;
+    if (c.tipo === 'sel') ctl = `<select id="${id}">${c.ops.map(([k, l]) => `<option value="${esc(k)}" ${String(val) === String(k) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+    else if (c.tipo === 'area') ctl = `<textarea id="${id}" ${c.alto ? 'style="min-height:280px"' : ''}>${esc(val)}</textarea>`;
+    else ctl = `<input id="${id}" type="${c.tipo === 'date' ? 'date' : 'text'}" ${c.tipo === 'num' ? 'inputmode="decimal"' : ''} value="${esc(c.tipo === 'num' && val !== '' ? String(val).replace('.', ',') : val)}" ${c.lista ? `list="${id}-l"` : ''}>` + (c.lista ? `<datalist id="${id}-l">${c.lista.map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : '');
+    return `<label for="${id}" data-k="${c.k}"><span>${esc(c.label)}${c.req ? ' *' : ''}</span>${ctl}${c.dica ? `<small>${esc(c.dica)}</small>` : ''}</label>`;
+  }).join('') + `<div id="ferr" role="alert"></div><div class="actions"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" id="fcancel">Cancelar</button><span class="sp"></span>${cfg.excluir ? `<button class="btn danger" type="button" id="fdel">Excluir</button>` : ''}</div>`;
+  visForm();
+  $('#dlg').showModal();
+}
+/* Campos com `se` só aparecem quando a condição vale para os valores atuais do formulário (ex.: macroetapa só no CSAT). */
+const formVals = () => Object.fromEntries(formCfg.campos.map(c => [c.k, $('#f-' + c.k).value.trim()]));
+function visForm() {
+  const cur = formVals();
+  formCfg.campos.forEach(c => { if (c.se) $('#f-' + c.k).closest('label').hidden = !c.se(cur); });
+}
+$('#frm').addEventListener('change', () => formCfg && visForm());
+$('#frm').addEventListener('click', async e => {
+  if (e.target.id === 'fcancel') $('#dlg').close();
+  if (e.target.id === 'fdel') {
+    if (e.target.dataset.ok) { try { await formCfg.excluir(); $('#dlg').close(); } catch { $('#ferr').textContent = 'Não foi possível excluir. Tente de novo.'; } }
+    else { e.target.dataset.ok = 1; e.target.textContent = 'Confirmar exclusão'; }
+  }
+});
+$('#frm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const vals = {}, err = $('#ferr'), cur = formVals();
+  for (const c of formCfg.campos) {
+    if (c.se && !c.se(cur)) continue;
+    let x = $('#f-' + c.k).value.trim();
+    if (c.req && !x) { err.textContent = `Preencha o campo “${c.label}”.`; return; }
+    if (c.tipo === 'num' && x) { x = parseFloat(x.replace(/\./g, '').replace(',', '.')); if (!isFinite(x)) { err.textContent = `“${c.label}” precisa ser um número, por exemplo 42 ou 7,5.`; return; } }
+    if (c.tipo === 'url' && x && !/^https?:\/\//i.test(x)) x = 'https://' + x;
+    vals[c.k] = x;
+  }
+  try { const r = await formCfg.salvar(vals); if (typeof r === 'string') { err.textContent = r; return; } $('#dlg').close(); }
+  catch { err.textContent = WEB ? 'Não foi possível salvar. Verifique a conexão e se a sua conta tem permissão para isso.' : 'Não foi possível salvar. Verifique se você tem permissão de contribuidor e tente de novo.'; }
+});
+
+/* ---------- ações ---------- */
+function fCliente(c) {
+  openForm({ titulo: c ? 'Editar cliente' : 'Novo cliente', valores: c, campos: [
+    { k: 'nome', label: 'Cliente', req: 1 },
+    { k: 'coordenadoria', label: 'Coordenadoria', tipo: 'sel', req: 1, ops: [['', 'Selecione'], ...COORDS.map(x => [x, x]), ...(c?.coordenadoria && !COORDS.includes(c.coordenadoria) ? [[c.coordenadoria, c.coordenadoria + ' (antiga)']] : [])], dica: 'Define em qual grupo a pasta aparece.' },
+    { k: 'projeto', label: 'Projeto' },
+    { k: 'status', label: 'Situação', tipo: 'sel', ops: ops(STATUS), padrao: 'andamento' },
+    { k: 'inicio', label: 'Início do projeto', tipo: 'date' },
+    { k: 'posVendaEm', label: 'Data do pós-venda', tipo: 'date', dica: 'Quando refazer o NPS e conferir o indicador de sucesso.' },
+    { k: 'objetivo', label: 'O que o cliente considera sucesso', tipo: 'area', dica: 'Ex.: aumentar a quantidade de leads e a conversão em vendas.' }],
+    salvar: v => put('clientes', c?.id || newId(), { ...(c ? semId(c) : { criadoEm: Date.now() }), ...v }),
+    excluir: c && (async () => {
+      for (const l of S.links.filter(l => l.clienteId === c.id)) await del('links', l.id);
+      for (const i of S.indicadores.filter(i => i.clienteId === c.id)) await del('indicadores', i.id);
+      await del('clientes', c.id); location.hash = '#clientes';
+    }) });
+}
+function fLink(l, cli) {
+  const geral = l ? !l.clienteId : !cli;
+  openForm({ titulo: l ? 'Editar link' : 'Adicionar link', valores: l, campos: [
+    { k: 'titulo', label: 'Nome', req: 1 }, { k: 'url', label: 'Endereço (URL)', tipo: 'url', req: 1 },
+    { k: 'tipo', label: 'Tipo', tipo: 'sel', ops: ops(TLINK), padrao: 'planilha' },
+    ...(geral ? [{ k: 'grupo', label: 'Grupo', lista: [...new Set(S.links.map(x => x.grupo).filter(Boolean))], dica: 'Ex.: o nome da coordenadoria, “Equipe” ou “Modelos”.' }] : [])],
+    salvar: v => put('links', l?.id || newId(), { ...(l ? semId(l) : { clienteId: cli || '', criadoEm: Date.now() }), ...v }),
+    excluir: l && (() => del('links', l.id)) });
+}
+function fInd(i, cli) {
+  /* NPS: só duas notas, no final do projeto e no pós-venda. CSAT: uma nota por macroetapa, enquanto houver no máximo uma medição. */
+  const ms = i?.medicoes || [], m0 = ms[0], umaMed = ms.length <= 1, eNps = v => v.tipo === 'nps';
+  const nF = i?.tipo === 'nps' ? (ms.find(m => m.fase === 'final') || ms.find(m => m.fase !== 'pos')) : null, nP = i?.tipo === 'nps' ? ms.find(m => m.fase === 'pos') : null;
+  openForm({ titulo: i ? 'Editar indicador' : 'Novo indicador', valores: i && { ...i, npsFinal: nF?.valor, npsFinalData: nF?.data, npsPos: nP?.valor, npsPosData: nP?.data, data: m0?.data }, campos: [
+    { k: 'tipo', label: 'Tipo', tipo: 'sel', ops: ops(TIND), padrao: 'nps' },
+    { k: 'macroetapa', label: 'Macroetapa do projeto', se: v => v.tipo === 'csat', lista: [...new Set(S.indicadores.map(x => x.macroetapa).filter(Boolean))], dica: 'O CSAT é medido ao fim de cada macroetapa. Crie um CSAT para cada uma, ex.: “Diagnóstico”.' },
+    { k: 'npsFinal', label: 'NPS no final do projeto (de 1 a 10)', tipo: 'num', se: eNps, dica: 'Pode ficar em branco se o cliente ainda não respondeu.' },
+    { k: 'npsFinalData', label: 'Data do NPS do final do projeto', tipo: 'date', se: eNps },
+    { k: 'npsPos', label: 'NPS no pós-venda (de 1 a 10)', tipo: 'num', se: eNps, dica: 'Medido um período depois, para conferir se o cliente ainda recomendaria o serviço.' },
+    { k: 'npsPosData', label: 'Data do NPS do pós-venda', tipo: 'date', se: eNps },
+    { k: 'valorCsat', label: 'Valor do CSAT (de 1 a 5)', tipo: 'num', se: v => v.tipo === 'csat' && umaMed, padrao: i?.tipo === 'csat' ? m0?.valor : '', dica: 'Pode ficar em branco se a macroetapa ainda não foi avaliada.' },
+    { k: 'data', label: 'Data da medição', tipo: 'date', se: v => v.tipo === 'csat' && umaMed, padrao: hoje() },
+    { k: 'nome', label: 'Nome', se: v => v.tipo === 'resultado', dica: 'Ex.: “Leads por mês”.' },
+    { k: 'unidade', label: 'Unidade', se: v => v.tipo === 'resultado', dica: 'Ex.: leads, %, R$.' },
+    { k: 'sentido', label: 'Resultado bom é', tipo: 'sel', se: v => v.tipo === 'resultado', ops: [['subir', 'Aumentar'], ['descer', 'Diminuir']], padrao: 'subir' }],
+    salvar: v => {
+      const d = { tipo: v.tipo, macroetapa: '', sentido: 'subir', unidade: '' };
+      if (v.tipo === 'csat') {
+        if (!v.macroetapa) return 'Informe a qual macroetapa este CSAT se refere.';
+        d.macroetapa = v.macroetapa; d.nome = 'CSAT · ' + v.macroetapa;
+        if (typeof v.valorCsat === 'number') {
+          if (foraEscala('csat', v.valorCsat)) return foraEscala('csat', v.valorCsat);
+          d.medicoes = [{ fase: m0?.fase || 'durante', valor: v.valorCsat, data: v.data || hoje(), obs: m0?.obs || '' }];
+        }
+      } else if (v.tipo === 'nps') {
+        const dono = i ? i.clienteId : cli;
+        if (S.indicadores.some(x => x.tipo === 'nps' && x.clienteId === dono && x.id !== i?.id)) return 'Este cliente já tem um NPS. Edite o NPS existente para informar as duas notas.';
+        d.nome = 'NPS'; d.medicoes = [];
+        for (const [val, data, fase, ant] of [[v.npsFinal, v.npsFinalData, 'final', nF], [v.npsPos, v.npsPosData, 'pos', nP]]) {
+          if (typeof val !== 'number') continue;
+          if (foraEscala('nps', val)) return foraEscala('nps', val);
+          d.medicoes.push({ fase, valor: val, data: data || hoje(), obs: ant?.obs || '' });
+        }
+      } else {
+        if (!v.nome) return 'Dê um nome ao indicador de sucesso do cliente.';
+        d.nome = v.nome; d.unidade = v.unidade || ''; d.sentido = v.sentido;
+      }
+      return put('indicadores', i?.id || newId(), { ...(i ? semId(i) : { clienteId: cli, medicoes: [], criadoEm: Date.now() }), ...d });
+    },
+    excluir: i && (() => del('indicadores', i.id)) });
+}
+function fMed(i) {
+  const tem = (i.medicoes || []).some(m => m.fase === 'antes');
+  openForm({ titulo: 'Registrar medição · ' + i.nome, campos: [
+    { k: 'fase', label: 'Fase', tipo: 'sel', ops: ops(FASE), padrao: tem ? 'pos' : 'antes' },
+    { k: 'valor', label: 'Valor' + (ESCALA[i.tipo] ? ` (de ${ESCALA[i.tipo][0]} a ${ESCALA[i.tipo][1]})` : i.unidade ? ' (' + i.unidade + ')' : ''), tipo: 'num', req: 1 },
+    { k: 'data', label: 'Data da medição', tipo: 'date', req: 1, padrao: hoje() },
+    { k: 'obs', label: 'Observação' }],
+    salvar: v => foraEscala(i.tipo, v.valor) || put('indicadores', i.id, { ...semId(i), medicoes: [...(i.medicoes || []), v] }) });
+}
+function fInsight(i, cli) {
+  openForm({ titulo: i ? 'Editar insight' : 'Registrar insight', valores: i, campos: [
+    { k: 'titulo', label: 'Título', req: 1 },
+    { k: 'texto', label: 'O que os dados mostram e o que você propõe', tipo: 'area' },
+    { k: 'tipo', label: 'Tipo', tipo: 'sel', ops: ops(TINS), padrao: 'escopo' },
+    { k: 'status', label: 'Situação', tipo: 'sel', ops: ops(SINS), padrao: 'ideia' },
+    { k: 'clienteId', label: 'Cliente relacionado', tipo: 'sel', ops: cliOps(), padrao: cli || '' }],
+    salvar: v => put('insights', i?.id || newId(), { ...(i ? semId(i) : { autorId: me.id || '', criadoEm: Date.now() }), ...v }),
+    excluir: i && (() => del('insights', i.id)) });
+}
+function fTarefa(t) {
+  const resp = [...equipeOps(t?.responsavelId), ['todos', 'Toda a equipe'], ['', 'Ninguém']];
+  openForm({ titulo: t ? 'Editar tarefa' : 'Nova tarefa', valores: t, campos: [
+    { k: 'titulo', label: 'Tarefa', req: 1 },
+    { k: 'coluna', label: 'Coluna', tipo: 'sel', ops: COLUNAS, padrao: 'afazer' },
+    { k: 'responsavelId', label: 'Responsável', tipo: 'sel', ops: resp, padrao: me.id || '', dica: 'Escolha um colega para delegar ou “Toda a equipe” para uma tarefa de todos. Só aparece na lista quem já abriu a central.' },
+    { k: 'clienteId', label: 'Cliente relacionado', tipo: 'sel', ops: cliOps() },
+    { k: 'prazo', label: 'Prazo', tipo: 'date' }, { k: 'notas', label: 'Notas', tipo: 'area' }],
+    salvar: v => put('tarefas', t?.id || newId(), { ...(t ? semId(t) : { criadoEm: Date.now(), criadoPor: me.id || '' }), ...v }),
+    excluir: t && (() => del('tarefas', t.id)) });
+}
+function fGrafico(g) {
+  const txt = (g?.dados || []).map(d => d.r + '; ' + String(d.v).replace('.', ',')).join('\n');
+  const ePl = v => v.fonte === 'planilha';
+  openForm({ titulo: g ? 'Editar gráfico' : 'Inserir gráfico', valores: g && { ...g, fonte: g.fonte || 'manual', dados: txt }, campos: [
+    { k: 'titulo', label: 'Título', req: 1, dica: 'Ex.: Leads por mês do cliente X.' },
+    { k: 'tipo', label: 'Tipo', tipo: 'sel', ops: [['barras', 'Barras (comparar categorias)'], ['linha', 'Linha (evolução no tempo)']], padrao: 'barras' },
+    { k: 'fonte', label: 'De onde vêm os dados', tipo: 'sel', ops: [['planilha', 'Planilha do Google Sheets'], ['manual', 'Digitar os dados aqui']], padrao: 'planilha' },
+    { k: 'planilhaUrl', label: 'Link da planilha', se: ePl, req: 1, dica: 'Cole o endereço da planilha no Google Sheets.' },
+    { k: 'intervalo', label: 'Aba e intervalo', se: ePl, req: 1, dica: 'Duas colunas: rótulos na primeira e números na segunda. Ex.: Página1!A2:B13. Até 40 linhas.' },
+    { k: 'dados', label: 'Dados', tipo: 'area', se: v => !ePl(v), req: 1, dica: 'Uma linha por ponto, no formato “Rótulo; valor”. Ex.: Janeiro; 42.' },
+    { k: 'unidade', label: 'Unidade', dica: 'Ex.: leads, %, R$. Pode ficar em branco.' },
+    { k: 'clienteId', label: 'Cliente relacionado', tipo: 'sel', ops: cliOps() },
+    { k: 'nota', label: 'O que o gráfico mostra', tipo: 'area' }],
+    salvar: v => {
+      const dados = [];
+      if (v.fonte === 'planilha') {
+        if (!plId(v.planilhaUrl)) return 'Não reconheci o link. Cole o endereço completo da planilha, que começa com docs.google.com/spreadsheets.';
+      } else {
+        for (const ln of v.dados.split('\n').map(s => s.trim()).filter(Boolean)) {
+          const k = Math.max(ln.lastIndexOf(';'), ln.lastIndexOf('\t')), r = k > 0 ? ln.slice(0, k).trim() : '', n = numero(ln.slice(k + 1));
+          if (!r || !isFinite(n)) return `Não entendi a linha “${ln}”. Use o formato “Rótulo; valor”, por exemplo “Janeiro; 42”.`;
+          dados.push({ r, v: n });
+        }
+        if (dados.length > 40) return 'Use no máximo 40 pontos por gráfico.';
+      }
+      return put('graficos', g?.id || newId(), { ...(g ? semId(g) : { autorId: me.id || '', criadoEm: Date.now() }), titulo: v.titulo, tipo: v.tipo, fonte: v.fonte, planilhaUrl: v.planilhaUrl || '', intervalo: v.intervalo || '', unidade: v.unidade, clienteId: v.clienteId, nota: v.nota, dados });
+    },
+    excluir: g && (() => del('graficos', g.id)) });
+}
+function fDoc(d) {
+  openForm({ titulo: d ? 'Editar página' : 'Nova página', valores: d, campos: [
+    { k: 'titulo', label: 'Título', req: 1 }, { k: 'corpo', label: 'Conteúdo', tipo: 'area', alto: 1 }],
+    salvar: v => { const id = d?.id || newId(); return put('docs', id, { ...v, atualizadoEm: Date.now() }).then(() => { location.hash = '#d-' + id; }); },
+    excluir: d && (async () => { await del('docs', d.id); location.hash = '#documentacao'; }) });
+}
+const A = {
+  'novo-cliente': () => fCliente(), 'edit-cliente': d => fCliente(byId('clientes', d.id)),
+  'novo-link': d => fLink(null, d.cli), 'edit-link': d => fLink(byId('links', d.id)),
+  'novo-ind': d => fInd(null, d.cli), 'edit-ind': d => fInd(byId('indicadores', d.id)),
+  'nova-med': d => fMed(byId('indicadores', d.id)),
+  'del-med': (d, el) => {
+    if (!el.dataset.ok) { el.dataset.ok = 1; el.textContent = 'Confirmar'; return; }
+    const i = byId('indicadores', d.id); put('indicadores', i.id, { ...semId(i), medicoes: i.medicoes.filter((_, k) => k !== +d.i) });
+  },
+  'novo-insight': d => fInsight(null, d.cli), 'edit-insight': d => fInsight(byId('insights', d.id)),
+  'nova-tarefa': () => fTarefa(), 'edit-tarefa': d => fTarefa(byId('tarefas', d.id)),
+  'mover': d => { const t = byId('tarefas', d.id); put('tarefas', t.id, { ...semId(t), coluna: d.para }); },
+  'novo-doc': () => fDoc(), 'edit-doc': d => fDoc(byId('docs', d.id)),
+  'novo-grafico': () => fGrafico(), 'edit-grafico': d => fGrafico(byId('graficos', d.id)),
+  'ler-planilha': d => { const g = byId('graficos', d.id); if (g && mcp) { lerPlanilha(g, true); render(); } },
+  'edit-sprint': () => openForm({ titulo: 'Configurar sprint', valores: S.sprint || {}, campos: [
+    { k: 'nome', label: 'Nome do sprint', req: 1, dica: 'Ex.: Sprint 1.' }, { k: 'fim', label: 'Termina em', tipo: 'date' },
+    { k: 'liderId', label: 'Líder da equipe', tipo: 'sel', ops: [['', 'Não definido'], ...equipeOps(S.sprint?.liderId)], dica: 'As tarefas criadas pelo líder aparecem marcadas como “Do líder” no quadro.' },
+    { k: 'meta', label: 'Meta do sprint', tipo: 'area' }],
+    salvar: v => put('config', 'sprint', v) }),
+};
+$('#main').addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el || !db) return;
+  A[el.dataset.act]?.(el.dataset, el);
+});
+$('#main').addEventListener('change', e => {
+  if (e.target.id === 'filtro-ins') { filtroIns = e.target.value; render(); }
+  if (e.target.id === 'filtro-sp') { filtroSp = e.target.value; render(); }
+});
+$('#chatform').addEventListener('submit', async e => {
+  e.preventDefault();
+  const inp = $('#chatinput'), texto = inp.value.trim(); if (!texto || !db) return;
+  inp.value = '';
+  try {
+    await put('chat', newId(), { texto, autorId: me.id || '', ts: Date.now() });
+    if (S.chat.length >= 200) for (const m of [...S.chat].sort((a, b) => a.ts - b.ts).slice(0, 20)) await del('chat', m.id);
+  } catch { inp.value = texto; aviso('A mensagem não foi enviada. Tente de novo.'); }
+});
+
+/* ---------- início ---------- */
+/* ---------- modo site (fora do claude.ai) ----------
+   A mesma página roda em dois lugares. Dentro do claude.ai ela usa o banco, o login e o conector do Claude.
+   Aberta como site comum (GitHub Pages), usa o Firebase: login com Google, banco Firestore com a mesma estrutura
+   de coleções, e as planilhas são lidas pelo link público do Google Sheets. */
+/* Configuração do projeto Firebase (Configurações do projeto → Seus apps → Configuração do SDK). Não é segredo:
+   quem protege os dados são as regras do Firestore. */
+const FIREBASE = null;
+const FB_VER = '10.12.5';
+let WEB = false, auth = null, bloqueio = '';
+const cartao = (t, p, extra = '') => `<section class="card sec" style="max-width:460px;margin:40px auto;text-align:center;align-items:center"><h1>${t}</h1><p class="sub">${p}</p>${extra}</section>`;
+const carrega = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+/* Lê um intervalo de uma planilha compartilhada por link, sem conector: o Google devolve os dados chamando a função `cb`. */
+function lerGviz(id, intervalo) {
+  return new Promise((ok, no) => {
+    const cb = 'gviz' + newId(), s = document.createElement('script'), k = intervalo.lastIndexOf('!');
+    const aba = k > 0 ? intervalo.slice(0, k).replace(/^'|'$/g, '') : '', faixa = k > 0 ? intervalo.slice(k + 1) : intervalo;
+    const fim = (f, x) => { clearTimeout(t); delete window[cb]; s.remove(); f(x); };
+    const t = setTimeout(() => fim(no, { code: 'gviz' }), 15000);
+    window[cb] = r => r?.status === 'ok' ? fim(ok, { payload: { values: (r.table?.rows || []).map(l => (l.c || []).map(c => !c ? '' : typeof c.v === 'number' ? c.v : (c.f ?? c.v ?? ''))) } }) : fim(no, { code: 'gviz' });
+    s.onerror = () => fim(no, { code: 'gviz' });
+    s.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=0${aba ? '&sheet=' + encodeURIComponent(aba) : ''}&range=${encodeURIComponent(faixa)}`;
+    document.head.appendChild(s);
+  });
+}
+async function startWeb() {
+  WEB = true;
+  if (!FIREBASE) { bloqueio = cartao('Configuração pendente', 'O site ainda não foi ligado ao banco de dados. Falta informar a configuração do Firebase no código.'); render(); return; }
+  bloqueio = cartao('Central CX', 'Carregando…'); render();
+  try { for (const m of ['app', 'auth', 'firestore']) await carrega(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${m}-compat.js`); }
+  catch { bloqueio = cartao('Sem conexão', 'Não foi possível carregar o site. Verifique a internet e recarregue a página.'); render(); return; }
+  firebase.initializeApp(FIREBASE); auth = firebase.auth();
+  auth.onAuthStateChanged(u => {
+    if (!u) {
+      if (db) { location.reload(); return; }
+      bloqueio = cartao('Central CX · Ayra', 'Entre com a sua conta Google para acessar a central da equipe.', `<button class="btn pri" data-web="entrar">Entrar com Google</button><div id="werr" class="sub" role="alert"></div>`); render(); return;
+    }
+    me = { id: u.uid, nome: u.displayName || u.email || '', email: (u.email || '').toLowerCase() };
+    db = firebase.firestore(); bloqueio = '';
+    mcp = { callTool: (_s, _t, inp) => lerGviz(inp.spreadsheetId, inp.range) }; mcpPronto = true;
+    $('#sair').hidden = false; $('#acessos').hidden = false;
+    ligar();
+  });
+}
+document.addEventListener('click', e => {
+  const w = e.target.closest('[data-web]')?.dataset.web; if (!w || !auth) return;
+  if (w === 'sair') auth.signOut();
+  if (w === 'entrar') auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(err => {
+    const el = $('#werr'); if (!el) return;
+    el.textContent = err?.code === 'auth/unauthorized-domain' ? 'Este endereço ainda não foi autorizado no Firebase (Authentication → Settings → Authorized domains).'
+      : ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(err?.code) ? '' : 'Não foi possível entrar. Tente de novo.';
+  });
+});
+/* Lista de e-mails liberados (só no modo site). As regras do Firestore só deixam o responsável pela central gravar aqui. */
+function fAcessos() {
+  openForm({ titulo: 'Quem pode acessar', valores: { emails: S.permitidos.map(p => p.id).sort().join('\n') }, campos: [
+    { k: 'emails', label: 'E-mails liberados', tipo: 'area', dica: 'Um e-mail de conta Google por linha. Só o responsável pela central consegue alterar esta lista, e a conta dele entra sempre.' }],
+    salvar: async v => {
+      const novos = [...new Set(v.emails.split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean))];
+      const ruim = novos.find(e => !/^[^@\s\/]+@[^@\s\/]+\.[^@\s\/]+$/.test(e));
+      if (ruim) return `“${ruim}” não parece um e-mail.`;
+      const antigos = S.permitidos.map(p => p.id);
+      for (const e of novos.filter(e => !antigos.includes(e))) await put('permitidos', e, { desde: Date.now() });
+      for (const e of antigos.filter(e => !novos.includes(e))) await del('permitidos', e);
+    } });
+}
+$('#acessos').addEventListener('click', () => db && fAcessos());
+
+async function start() {
+  render();
+  if (!window.claude?.use) return startWeb();
+  [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+  window.claude.use('mcp').then(m => { mcp = m; mcpPronto = true; render(); });
+  if (user) { me = await user.me(); if ((await user.can('data.write')) === false) document.body.classList.add('ro'); }
+  if (!db) { document.body.classList.add('ro'); aviso('Não foi possível conectar aos dados compartilhados. Abra esta página logado no claude.ai.'); return; }
+  ligar();
+}
+/* Assina as coleções do banco. Vale para os dois modos: o Firestore e o banco do Claude têm a mesma interface. */
+function ligar() {
+  const timer = setTimeout(() => aviso('Os dados ainda não responderam. O que aparece pode estar desatualizado.'), 10000);
+  const ok = s => { if (!s.metadata.fromCache) { clearTimeout(timer); aviso(''); } };
+  const erro = e => {
+    clearTimeout(timer);
+    if (WEB && e?.code === 'permission-denied') { aviso(''); bloqueio = cartao('Sem acesso', `A conta ${esc(me.email)} ainda não foi liberada para a central. Peça a liberação ao responsável e entre de novo.`, `<button class="btn" data-web="sair">Sair e trocar de conta</button>`); render(); return; }
+    aviso('A conexão com os dados foi interrompida. Recarregue a página para tentar de novo.');
+  };
+  const lista = s => s.docs.map(x => ({ id: x.id, ...x.data() }));
+  let entrei = false;
+  COLS.forEach(c => db.collection(c).onSnapshot(s => {
+    S[c] = lista(s); loaded[c] = true;
+    if (c === 'indicadores') S[c].forEach(i => { if (ESCALA[i.tipo]) i.unidade = ''; });
+    /* No modo site os nomes vêm do cadastro de membros, gravado no primeiro acesso de cada pessoa. */
+    if (c === 'membros' && WEB) S[c].forEach(m => { P[m.id] = { name: m.nome || '' }; });
+    ok(s); render();
+    /* Registra quem abriu a central na lista da equipe, uma vez, para poder receber tarefas. */
+    if (c === 'membros' && !entrei && me.id && !s.metadata.fromCache && !document.body.classList.contains('ro')) {
+      entrei = true;
+      const eu = byId('membros', me.id);
+      if (WEB ? (!eu || eu.nome !== me.nome) : !eu) put('membros', me.id, WEB ? { desde: eu?.desde || Date.now(), nome: me.nome } : { desde: Date.now() }).catch(() => {});
+    }
+  }, erro));
+  db.doc('config/sprint').onSnapshot(s => { S.sprint = s.exists ? s.data() : null; render(); }, erro);
+  db.collection('chat').orderBy('ts', 'desc').limit(200).onSnapshot(s => { S.chat = lista(s); loaded.chat = true; render(); }, erro);
+  if (WEB) db.collection('permitidos').onSnapshot(s => { S.permitidos = lista(s); }, () => {});
+}
+start();
+</script>
+
+</body></html>
