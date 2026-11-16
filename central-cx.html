@@ -503,6 +503,20 @@ function vCliente(id) {
   return h;
 }
 
+/* Link que abre o Google Agenda com o evento da tarefa já preenchido: dia inteiro no prazo, com os responsáveis como
+   convidados (o e-mail de cada um é registrado quando a pessoa abre o site). Quem clica só confere e salva. */
+function agendaLink(t) {
+  const d = new Date(t.prazo + 'T12:00:00'); if (isNaN(d)) return '';
+  const dia = x => x.getFullYear() + String(x.getMonth() + 1).padStart(2, '0') + String(x.getDate()).padStart(2, '0'), fim = new Date(d); fim.setDate(fim.getDate() + 1);
+  const resp = t.responsavelId === 'todos' ? S.membros : S.membros.filter(m => m.id === t.responsavelId);
+  const mails = resp.map(m => m.email).filter(e => e && e !== me.email), sem = resp.filter(m => !m.email && m.id !== me.id).map(m => quem(m.id) || 'alguém');
+  const det = [t.notas, cliNome(t.clienteId) ? 'Cliente: ' + cliNome(t.clienteId) : '', t.responsavelId ? 'Responsável: ' + quem(t.responsavelId) : '',
+    'Tarefa do ' + (S.sprint?.nome || 'sprint') + ' na Central CX' + (WEB ? ': ' + location.origin + location.pathname + '#sprint' : '')].filter(Boolean).join('\n');
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: t.titulo, dates: dia(d) + '/' + dia(fim), details: det });
+  if (mails.length) q.set('add', mails.join(','));
+  const dica = sem.length ? `Sem e-mail registrado ainda: ${sem.join(', ')}. A pessoa precisa abrir o site da central uma vez.` : mails.length ? 'Convida: ' + mails.join(', ') : 'Abre o Google Agenda com o evento preenchido';
+  return `<a class="btn mini" style="text-decoration:none" href="https://calendar.google.com/calendar/render?${esc(q.toString())}" target="_blank" rel="noopener" title="${esc(dica)}">Pôr na agenda</a>`;
+}
 function vSprint() {
   const sp = S.sprint, lider = sp?.liderId || '';
   const ve = t => !filtroSp || t.responsavelId === filtroSp || t.responsavelId === 'todos';
@@ -513,7 +527,7 @@ function vSprint() {
     const ts = S.tarefas.filter(t => (t.coluna || 'afazer') === k && ve(t));
     h += `<div class="col"><span class="label">${nome} · ${ts.length}</span>` + (ts.map(t => `<div class="task"><button class="linkbtn" data-act="edit-tarefa" data-id="${t.id}">${esc(t.titulo)}</button>
       <div class="meta">${lider && t.criadoPor === lider ? pill('Do líder', 'av') : ''}${t.responsavelId === 'todos' ? pill('Toda a equipe', 'ac') : t.responsavelId ? `<span>${esc(quem(t.responsavelId))}</span>` : ''}${cliNome(t.clienteId) ? pill(cliNome(t.clienteId)) : ''}${t.prazo ? `<span class="num">${fdata(t.prazo)}</span>` : ''}</div>
-      <div class="actions">${ci > 0 ? btn('mover', '← ' + COLUNAS[ci - 1][1], `data-id="${t.id}" data-para="${COLUNAS[ci - 1][0]}"`, 'mini') : ''}${ci < 2 ? btn('mover', COLUNAS[ci + 1][1] + ' →', `data-id="${t.id}" data-para="${COLUNAS[ci + 1][0]}"`, 'mini') : ''}</div></div>`).join('') || `<span class="sub">Nada aqui.</span>`) + `</div>`;
+      <div class="actions">${ci > 0 ? btn('mover', '← ' + COLUNAS[ci - 1][1], `data-id="${t.id}" data-para="${COLUNAS[ci - 1][0]}"`, 'mini') : ''}${ci < 2 ? btn('mover', COLUNAS[ci + 1][1] + ' →', `data-id="${t.id}" data-para="${COLUNAS[ci + 1][0]}"`, 'mini') : ''}${t.prazo && ci < 2 ? agendaLink(t) : ''}</div></div>`).join('') || `<span class="sub">Nada aqui.</span>`) + `</div>`;
   });
   return h + `</div>`;
 }
@@ -733,7 +747,7 @@ function fTarefa(t) {
     { k: 'coluna', label: 'Coluna', tipo: 'sel', ops: COLUNAS, padrao: 'afazer' },
     { k: 'responsavelId', label: 'Responsável', tipo: 'sel', ops: resp, padrao: me.id || '', dica: 'Escolha um colega para delegar ou “Toda a equipe” para uma tarefa de todos. Só aparece na lista quem já abriu a central.' },
     { k: 'clienteId', label: 'Cliente relacionado', tipo: 'sel', ops: cliOps() },
-    { k: 'prazo', label: 'Prazo', tipo: 'date' }, { k: 'notas', label: 'Notas', tipo: 'area' }],
+    { k: 'prazo', label: 'Prazo', tipo: 'date', dica: 'Com prazo, a tarefa ganha o botão “Pôr na agenda”, que cria o evento no Google Agenda e convida os responsáveis.' }, { k: 'notas', label: 'Notas', tipo: 'area' }],
     salvar: v => put('tarefas', t?.id || newId(), { ...(t ? semId(t) : { criadoEm: Date.now(), criadoPor: me.id || '' }), ...v }),
     excluir: t && (() => del('tarefas', t.id)) });
 }
@@ -1131,7 +1145,7 @@ function ligar() {
     if (c === 'membros' && !entrei && me.id && !s.metadata.fromCache && !document.body.classList.contains('ro')) {
       entrei = true;
       const eu = byId('membros', me.id);
-      if (WEB ? (!eu || eu.nome !== me.nome) : !eu) put('membros', me.id, WEB ? { desde: eu?.desde || Date.now(), nome: me.nome } : { desde: Date.now() }).catch(() => {});
+      if (WEB ? (!eu || eu.nome !== me.nome || eu.email !== me.email) : !eu) put('membros', me.id, WEB ? { desde: eu?.desde || Date.now(), nome: me.nome, email: me.email } : { desde: Date.now() }).catch(() => {});
     }
   }, erro));
   db.doc('config/sprint').onSnapshot(s => { S.sprint = s.exists ? s.data() : null; render(); }, erro);
