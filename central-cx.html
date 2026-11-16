@@ -814,7 +814,8 @@ function statusPl(t) {
   return /encerr|conclu|finaliz|entreg/.test(n) ? 'encerrado' : /\bpos/.test(n) ? 'pos' : /andamento|ativo|execu|curso/.test(n) ? 'andamento' : '';
 }
 /* Compara a planilha com o que está na central e monta a lista do que gravar, sem gravar nada ainda. */
-function planoPlanilha(linhas) {
+/* `de` e `ate` são números de linha da planilha (opcionais): só os clientes dessas linhas entram. */
+function planoPlanilha(linhas, de, ate) {
   const chave = h => norm(h).replace(/ /g, '');
   const hi = linhas.slice(0, 15).findIndex(l => (l || []).some(x => chave(x) === 'cliente'));
   if (hi < 0) return { erro: 'Não encontrei o cabeçalho. A aba precisa ter uma linha de cabeçalho com uma coluna chamada “Cliente”.' };
@@ -864,8 +865,10 @@ function planoPlanilha(linhas) {
   };
   linhas.slice(hi + 1).forEach((l, n) => {
     l = l || [];
+    const num = hi + n + 2; if ((de && num < de) || (ate && num > ate)) return;
     const nome = txt(l, 'nome'), id0 = norm(nome); if (!id0) return;
-    if (vistos.has(id0)) { p.avisos.push(`“${nome}” aparece mais de uma vez na planilha; usei só a primeira linha (a repetida é a linha ${hi + n + 2}).`); return; }
+    p.ultima = num;
+    if (vistos.has(id0)) { p.avisos.push(`“${nome}” aparece mais de uma vez na planilha; usei só a primeira linha (a repetida é a linha ${num}).`); return; }
     vistos.add(id0);
     const atual = S.clientes.find(c => norm(c.nome) === id0), v = {};
     for (const [c] of FICHA_PL) if (txt(l, c)) v[c] = txt(l, c);
@@ -906,53 +909,72 @@ function planoPlanilha(linhas) {
     }
     if (!atual) p.novos.push(nome); else if (p.gravar.length > antes) p.atualizados.push(atual.nome); else p.iguais++;
   });
-  if (!vistos.size) return { erro: 'A planilha foi lida, mas ainda não há nenhum cliente preenchido abaixo do cabeçalho.' };
+  if (!vistos.size) return { faixa: 1, erro: de || ate ? `Não há nenhum cliente preenchido ${de && ate ? `entre as linhas ${de} e ${ate}` : de ? `da linha ${de} em diante` : `até a linha ${ate}`}. O cabeçalho está na linha ${hi + 1}.` : 'A planilha foi lida, mas ainda não há nenhum cliente preenchido abaixo do cabeçalho.' };
   return p;
 }
-/* Lê a aba inteira. No claude.ai, pelo conector. No site, pelo link público, em três leituras (onde está o cabeçalho, o
+/* Lê a aba; cada linha devolvida fica na posição do seu número na planilha. No claude.ai, pelo conector. No site, pelo link público, em três leituras (onde está o cabeçalho, o
    cabeçalho, os dados), porque o Google descarta o texto do cabeçalho quando ele vem junto de uma coluna de números ou datas. */
-async function linhasPlanilha(cfg) {
+async function linhasPlanilha(cfg, de, ate) {
   const id = plId(cfg.url), aba = (cfg.aba || ABA_PL).replace(/^'|'$/g, '');
   if (!WEB) return achaValores((await mcp.callTool(SHEETS, 'get_values', { spreadsheetId: id, range: `'${aba}'!A1:CZ1000` }, { cache: { refresh: true } })).payload) || [];
   const ler = async f => achaValores((await lerGviz(id, `${aba}!${f}`, true)).payload) || [];
   const h = (await ler('A1:A15')).findIndex(l => norm(l[0]) === 'cliente');
   if (h < 0) return [];
-  return [(await ler(`A${h + 1}:CZ${h + 1}`))[0] || [], ...await ler(`A${h + 2}:CZ1000`).catch(() => [])];
+  const ini = Math.max(h + 2, de || 0), fim = ate || 1000;
+  return [...Array(h).fill([]), (await ler(`A${h + 1}:CZ${h + 1}`))[0] || [], ...Array(ini - h - 2).fill([]), ...(fim < ini ? [] : await ler(`A${ini}:CZ${fim}`).catch(() => []))];
 }
 function fPlanilha(erro) {
   openForm({ titulo: 'Planilha de clientes', valores: S.planilha || {},
     intro: `<p class="sub">Use a planilha “Base de Clientes e Indicadores · CX Ayra”: uma linha por cliente, com a ficha, o contato, o CSAT de cada macroetapa, o NPS e o indicador de sucesso.${WEB ? ' Ela precisa estar compartilhada como “Qualquer pessoa com o link”.' : ''}</p>`,
-    ok: 'Salvar e ler a planilha', campos: [
+    ok: 'Salvar e continuar', campos: [
     { k: 'url', label: 'Link da planilha', req: 1, dica: 'Cole o endereço da planilha no Google Sheets.' },
     { k: 'aba', label: 'Nome da aba', req: 1, padrao: ABA_PL }],
     salvar: async v => {
       if (!plId(v.url)) return 'Não reconheci o link. Cole o endereço completo da planilha, que começa com docs.google.com/spreadsheets.';
-      await put('config', 'planilha', v);
-      setTimeout(() => sincClientes(v));
+      await put('config', 'planilha', { ...v, ...(S.planilha?.ultimaLinha && plId(S.planilha.url) === plId(v.url) ? { ultimaLinha: S.planilha.ultimaLinha } : {}) });
+      setTimeout(() => fFaixa('', { ...(S.planilha || {}), ...v }));
     } });
   if (erro) $('#ferr').textContent = erro;
 }
-async function sincClientes(cfg = S.planilha) {
+/* Pergunta quais linhas da planilha ler. Sugere continuar de onde a última atualização parou. */
+function fFaixa(erro, cfg = S.planilha, val) {
+  const u = cfg.ultimaLinha;
+  openForm({ titulo: 'Atualizar pela planilha', valores: val || { de: u ? u + 1 : '' }, ok: 'Ler a planilha',
+    intro: `<p class="sub">Escolha as linhas da planilha que quer trazer, pelo número que aparece à esquerda dela. Em branco, a central lê tudo.${u ? ` A última atualização foi até a linha ${u}.` : ''} Cliente que já está na central não é duplicado: ele é reconhecido pelo nome e só recebe o que mudou.</p>`,
+    campos: [
+    { k: 'de', label: 'Da linha', tipo: 'num', dica: 'Em branco: desde o primeiro cliente.' },
+    { k: 'ate', label: 'Até a linha', tipo: 'num', dica: 'Em branco: até o último cliente.' }],
+    salvar: v => {
+      const de = v.de === '' ? 0 : v.de, ate = v.ate === '' ? 0 : v.ate;
+      if (![de, ate].every(n => Number.isInteger(n) && n >= 0)) return 'Informe números de linha inteiros, por exemplo 5 e 12.';
+      if (de && ate && de > ate) return 'A primeira linha precisa vir antes da última.';
+      setTimeout(() => sincClientes(cfg, de, ate));
+    } });
+  if (erro) $('#ferr').textContent = erro;
+}
+async function sincClientes(cfg = S.planilha, de = 0, ate = 0) {
   if (sincLendo) return;
   if (!mcp) return fPlanilha(mcpPronto ? 'O conector Google Sheets não está disponível nesta página. Abra a central no claude.ai com o conector ativo.' : 'A leitura de planilhas ainda está carregando. Tente de novo em instantes.');
   sincLendo = true; render();
   let p;
-  try { p = planoPlanilha(await linhasPlanilha(cfg)); }
+  try { p = planoPlanilha(await linhasPlanilha(cfg, de, ate), de, ate); }
   catch (e) { p = { erro: ERRO_PL[e?.code]?.replace('o nome da aba e o intervalo', 'o nome da aba') || 'Não foi possível ler a planilha agora. Tente de novo em instantes.' }; }
   sincLendo = false; render();
-  if (p.erro) return fPlanilha(p.erro);
+  if (p.erro) return p.faixa ? fFaixa(p.erro, cfg, { de: de || '', ate: ate || '' }) : fPlanilha(p.erro);
   const nomes = xs => xs.slice(0, 8).map(esc).join(', ') + (xs.length > 8 ? ` e mais ${xs.length - 8}` : '');
   const li = [
     p.novos.length ? `<li><b>${p.novos.length}</b> ${p.novos.length === 1 ? 'cliente novo' : 'clientes novos'}: ${nomes(p.novos)}</li>` : '',
     p.atualizados.length ? `<li><b>${p.atualizados.length}</b> ${p.atualizados.length === 1 ? 'cliente com dados atualizados' : 'clientes com dados atualizados'}: ${nomes(p.atualizados)}</li>` : '',
     p.iguais ? `<li><b>${p.iguais}</b> já ${p.iguais === 1 ? 'está igual' : 'estão iguais'} à planilha</li>` : ''].join('');
   openForm({ titulo: 'Atualizar pela planilha', campos: [], ok: 'Atualizar a central',
-    intro: `<ul class="steps">${li}</ul><p class="sub">Lido da planilha: ${esc(p.lido.join(', '))}.${p.fora.length ? ` Colunas ignoradas: ${nomes(p.fora)}.` : ''}</p>`
+    intro: `<ul class="steps">${li}</ul><p class="sub">${de || ate ? `Linhas ${de || 'do início'} a ${ate || p.ultima} da planilha. ` : ''}Lido: ${esc(p.lido.join(', '))}.${p.fora.length ? ` Colunas ignoradas: ${nomes(p.fora)}.` : ''}</p>`
       + (p.avisos.length ? `<div class="empty"><b>Confira na planilha:</b><ul class="steps">${p.avisos.slice(0, 6).map(a => `<li>${esc(a)}</li>`).join('')}</ul>${p.avisos.length > 6 ? `<span class="sub">E mais ${p.avisos.length - 6}.</span>` : ''}</div>` : ''),
     salvar: p.gravar.length ? async () => {
       const b = $('#frm button[type=submit]'); b.disabled = true; b.textContent = 'Atualizando…';
       try { for (const [col, id, data] of p.gravar) await put(col, id, data); }
       catch (e) { b.disabled = false; b.textContent = 'Atualizar a central'; throw e; }
+      /* Guarda até onde foi, para sugerir a continuação na próxima vez. */
+      put('config', 'planilha', { url: cfg.url, aba: cfg.aba || ABA_PL, ultimaLinha: Math.max(p.ultima, cfg.ultimaLinha || 0) }).catch(() => {});
     } : null });
 }
 function fDoc(d) {
@@ -975,7 +997,7 @@ const A = {
   'mover': d => { const t = byId('tarefas', d.id); put('tarefas', t.id, { ...semId(t), coluna: d.para }); },
   'novo-doc': () => fDoc(), 'edit-doc': d => fDoc(byId('docs', d.id)),
   'novo-grafico': () => fGrafico(), 'edit-grafico': d => fGrafico(byId('graficos', d.id)),
-  'sinc-clientes': () => S.planilha?.url ? sincClientes() : fPlanilha(), 'cfg-planilha': () => fPlanilha(),
+  'sinc-clientes': () => S.planilha?.url ? fFaixa() : fPlanilha(), 'cfg-planilha': () => fPlanilha(),
   'ler-planilha': d => { const g = byId('graficos', d.id); if (g && mcp) { lerPlanilha(g, true); render(); } },
   'edit-sprint': () => openForm({ titulo: 'Configurar sprint', valores: S.sprint || {}, campos: [
     { k: 'nome', label: 'Nome do sprint', req: 1, dica: 'Ex.: Sprint 1.' }, { k: 'fim', label: 'Termina em', tipo: 'date' },
