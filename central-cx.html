@@ -210,7 +210,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 const COLS = ['clientes', 'links', 'indicadores', 'insights', 'tarefas', 'docs', 'membros', 'graficos'];
-const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], graficos: [], permitidos: [], chat: [], sprint: null };
+const S = { clientes: [], links: [], indicadores: [], insights: [], tarefas: [], docs: [], membros: [], graficos: [], permitidos: [], chat: [], sprint: null, planilha: null };
 const loaded = {};
 let mcp = null, db = null, user = null, me = { id: null }, P = {}, filtroIns = '', filtroSp = '', pedindoPerfis = false;
 
@@ -355,7 +355,7 @@ let mcpPronto = false, filaPl = Promise.resolve();
 const plId = url => (String(url || '').match(/\/d\/([\w-]{20,})/) || String(url || '').match(/^([\w-]{20,})$/) || [])[1] || '';
 const plChave = g => g.id + '|' + g.planilhaUrl + '|' + g.intervalo;
 const ERRO_PL = {
-  server_not_connected: 'Adicione o conector Google Sheets em claude.ai, em Configurações → Conectores, para ver este gráfico.',
+  server_not_connected: 'Adicione o conector Google Sheets em claude.ai, em Configurações → Conectores, para ler a planilha.',
   selection_required: 'Você tem mais de um conector Google Sheets. Escolha qual usar no aviso do claude.ai e atualize.',
   needs_reauth: 'O acesso ao Google Sheets expirou. Reconecte o conector em claude.ai, em Configurações → Conectores.',
   not_in_manifest: 'O uso do Google Sheets não foi permitido para esta página. Permita no menu de permissões da página e atualize.',
@@ -446,7 +446,7 @@ function vInicio() {
 }
 
 function vClientes() {
-  let h = `<div class="head"><div><h1>Clientes</h1><p class="sub">Uma pasta por cliente, agrupadas por coordenadoria. Dentro de cada pasta ficam os links, os indicadores e os insights do projeto.</p></div>${btn('novo-cliente', 'Novo cliente', '', 'pri')}</div>`;
+  let h = `<div class="head"><div><h1>Clientes</h1><p class="sub">Uma pasta por cliente, agrupadas por coordenadoria. Dentro de cada pasta ficam os links, os indicadores e os insights do projeto.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${btn('sinc-clientes', sincLendo ? 'Lendo a planilha…' : 'Atualizar pela planilha', sincLendo ? 'disabled' : '')}${S.planilha?.url ? btn('cfg-planilha', 'Configurar planilha', '', 'mini') : ''}${btn('novo-cliente', 'Novo cliente', '', 'pri')}</div></div>`;
   if (!S.clientes.length) return h + `<div class="empty">Nenhum cliente cadastrado ainda.</div>`;
   const grupos = {};
   S.clientes.forEach(c => (grupos[c.coordenadoria || 'Sem coordenadoria'] ||= []).push(c));
@@ -468,6 +468,15 @@ function insCard(i, mostraCli) {
   return `<div class="card ins"><div class="head"><h3>${esc(i.titulo)}</h3>${btn('edit-insight', 'Editar', `data-id="${i.id}"`, 'mini')}</div>${i.texto ? `<p>${esc(i.texto)}</p>` : ''}<div class="meta">${pill(TINS[i.tipo] || 'Ideia')}${pill(st[0], st[1])}${mostraCli && cliNome(i.clienteId) ? `<a href="#c-${i.clienteId}">${esc(cliNome(i.clienteId))}</a>` : ''}${i.autorId ? `<span>por ${esc(quem(i.autorId))}</span>` : ''}</div></div>`;
 }
 
+/* Equipe do projeto, contato e anotações: só aparecem quando preenchidos (à mão ou pela planilha). */
+function fichaExtra(c) {
+  const par = (r, v) => v ? `<span><span class="label">${r}</span> ${v}</span>` : '', bloco = (r, v) => v ? `<div><span class="label">${r}</span><p class="doc">${esc(v)}</p></div>` : '';
+  const mail = c.contatoEmail ? (/^[^\s@<>"']+@[^\s@<>"']+$/.test(c.contatoEmail) ? `<a href="mailto:${esc(c.contatoEmail)}">${esc(c.contatoEmail)}</a>` : esc(c.contatoEmail)) : '';
+  const linha = xs => xs.join('') ? `<div class="folder" style="border:0;flex-direction:row;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:0">${xs.join('')}</div>` : '';
+  return linha([par('Coordenador do projeto', esc(c.coordenadorProjeto || '')), par('Analista de CX', esc(c.analistaCx || ''))])
+    + linha([par('Contato', esc([c.contatoNome, c.contatoCargo].filter(Boolean).join(' · '))), par('E-mail', mail), par('Telefone', esc(c.contatoTelefone || ''))])
+    + bloco('Comentários do cliente', c.comentarios) + bloco('Observações', c.observacoes);
+}
 function vCliente(id) {
   const c = byId('clientes', id);
   if (!c) return `<div class="empty">${loaded.clientes ? 'Este cliente não existe mais.' : 'Carregando…'} <a href="#clientes">Voltar para Clientes</a></div>`;
@@ -475,7 +484,7 @@ function vCliente(id) {
   let h = `<div class="sec"><a href="#clientes" class="sub">← Clientes${c.coordenadoria ? ' · ' + esc(c.coordenadoria) : ''}</a>
     <div class="head"><div><h1>${esc(c.nome)}</h1><p class="sub">${esc(c.projeto || 'Projeto sem nome')}</p></div>${btn('edit-cliente', 'Editar ficha', `data-id="${id}"`)}</div>
     <div class="card sec"><div class="folder" style="border:0;flex-direction:row;flex-wrap:wrap;gap:8px 20px;align-items:center">${pill(st[0], st[1])}<span><span class="label">Início</span> <span class="num">${fdata(c.inicio)}</span></span><span><span class="label">Pós-venda</span> <span class="num">${fdata(c.posVendaEm)}</span></span></div>
-    <div><span class="label">O que o cliente considera sucesso</span><p class="doc">${c.objetivo ? esc(c.objetivo) : '<span class="sub">Ainda não registrado.</span>'}</p></div></div></div>`;
+    <div><span class="label">O que o cliente considera sucesso</span><p class="doc">${c.objetivo ? esc(c.objetivo) : '<span class="sub">Ainda não registrado.</span>'}</p></div>${fichaExtra(c)}</div></div>`;
 
   const ls = S.links.filter(l => l.clienteId === id);
   h += `<section class="sec"><div class="head"><h2>Links e documentos</h2>${btn('novo-link', 'Adicionar link', `data-cli="${id}"`)}</div>${ls.length ? linkRows(ls) : `<div class="empty">Guarde aqui as planilhas, documentos e formulários deste projeto.</div>`}</section>`;
@@ -584,14 +593,14 @@ matchMedia('(max-width: 720px)').addEventListener('change', e => { if (!e.matche
 let formCfg = null;
 function openForm(cfg) {
   formCfg = cfg; const v = cfg.valores || {};
-  $('#frm').innerHTML = `<h2>${esc(cfg.titulo)}</h2>` + cfg.campos.map(c => {
+  $('#frm').innerHTML = `<h2>${esc(cfg.titulo)}</h2>${cfg.intro || ''}` + cfg.campos.map(c => {
     const val = v[c.k] ?? c.padrao ?? '', id = 'f-' + c.k;
     let ctl;
     if (c.tipo === 'sel') ctl = `<select id="${id}">${c.ops.map(([k, l]) => `<option value="${esc(k)}" ${String(val) === String(k) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     else if (c.tipo === 'area') ctl = `<textarea id="${id}" ${c.alto ? 'style="min-height:280px"' : ''}>${esc(val)}</textarea>`;
     else ctl = `<input id="${id}" type="${c.tipo === 'date' ? 'date' : 'text'}" ${c.tipo === 'num' ? 'inputmode="decimal"' : ''} value="${esc(c.tipo === 'num' && val !== '' ? String(val).replace('.', ',') : val)}" ${c.lista ? `list="${id}-l"` : ''}>` + (c.lista ? `<datalist id="${id}-l">${c.lista.map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : '');
     return `<label for="${id}" data-k="${c.k}"><span>${esc(c.label)}${c.req ? ' *' : ''}</span>${ctl}${c.dica ? `<small>${esc(c.dica)}</small>` : ''}</label>`;
-  }).join('') + `<div id="ferr" role="alert"></div><div class="actions"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" id="fcancel">Cancelar</button><span class="sp"></span>${cfg.excluir ? `<button class="btn danger" type="button" id="fdel">Excluir</button>` : ''}</div>`;
+  }).join('') + `<div id="ferr" role="alert"></div><div class="actions">${cfg.salvar ? `<button class="btn pri" type="submit">${esc(cfg.ok || 'Salvar')}</button>` : ''}<button class="btn" type="button" id="fcancel">${cfg.salvar ? 'Cancelar' : 'Fechar'}</button><span class="sp"></span>${cfg.excluir ? `<button class="btn danger" type="button" id="fdel">Excluir</button>` : ''}</div>`;
   visForm();
   $('#dlg').showModal();
 }
@@ -611,6 +620,7 @@ $('#frm').addEventListener('click', async e => {
 });
 $('#frm').addEventListener('submit', async e => {
   e.preventDefault();
+  if (!formCfg.salvar) return;
   const vals = {}, err = $('#ferr'), cur = formVals();
   for (const c of formCfg.campos) {
     if (c.se && !c.se(cur)) continue;
@@ -630,10 +640,15 @@ function fCliente(c) {
     { k: 'nome', label: 'Cliente', req: 1 },
     { k: 'coordenadoria', label: 'Coordenadoria', tipo: 'sel', req: 1, ops: [['', 'Selecione'], ...COORDS.map(x => [x, x]), ...(c?.coordenadoria && !COORDS.includes(c.coordenadoria) ? [[c.coordenadoria, c.coordenadoria + ' (antiga)']] : [])], dica: 'Define em qual grupo a pasta aparece.' },
     { k: 'projeto', label: 'Projeto' },
+    { k: 'coordenadorProjeto', label: 'Coordenador do projeto' },
+    { k: 'analistaCx', label: 'Analista de CX responsável' },
     { k: 'status', label: 'Situação', tipo: 'sel', ops: ops(STATUS), padrao: 'andamento' },
     { k: 'inicio', label: 'Início do projeto', tipo: 'date' },
     { k: 'posVendaEm', label: 'Data do pós-venda', tipo: 'date', dica: 'Quando refazer o NPS e conferir o indicador de sucesso.' },
-    { k: 'objetivo', label: 'O que o cliente considera sucesso', tipo: 'area', dica: 'Ex.: aumentar a quantidade de leads e a conversão em vendas.' }],
+    { k: 'objetivo', label: 'O que o cliente considera sucesso', tipo: 'area', dica: 'Ex.: aumentar a quantidade de leads e a conversão em vendas.' },
+    { k: 'contatoNome', label: 'Nome do contato' }, { k: 'contatoCargo', label: 'Cargo do contato' },
+    { k: 'contatoEmail', label: 'E-mail do contato' }, { k: 'contatoTelefone', label: 'Telefone do contato' },
+    { k: 'comentarios', label: 'Comentários do cliente', tipo: 'area' }, { k: 'observacoes', label: 'Observações', tipo: 'area' }],
     salvar: v => put('clientes', c?.id || newId(), { ...(c ? semId(c) : { criadoEm: Date.now() }), ...v }),
     excluir: c && (async () => {
       for (const l of S.links.filter(l => l.clienteId === c.id)) await del('links', l.id);
@@ -751,6 +766,195 @@ function fGrafico(g) {
     },
     excluir: g && (() => del('graficos', g.id)) });
 }
+/* ---------- clientes pela planilha ----------
+   O botão “Atualizar pela planilha” lê a aba “Clientes e indicadores” da base de CX no Google Sheets: uma linha por cliente,
+   com a ficha, o contato, até seis macroetapas de CSAT, o NPS e o indicador de sucesso. As colunas são achadas pelo nome do
+   cabeçalho (a linha que tem “Cliente”), e a data de cada nota é a coluna “Data…” logo à direita dela.
+   Cliente novo é criado; cliente que já existe (mesmo nome) recebe os dados da planilha. Célula vazia não apaga o que está
+   na central, e ninguém é excluído por sair da planilha. */
+const norm = t => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const ABA_PL = 'Clientes e indicadores';
+/* Campos de texto da ficha: [campo, rótulo, nomes aceitos no cabeçalho (sem acento, espaço ou pontuação)]. */
+const FICHA_PL = [
+  ['projeto', 'Projeto', ['projeto', 'nomedoprojeto']],
+  ['coordenadorProjeto', 'Coordenador do projeto', ['coordenadordoprojeto', 'coordenador']],
+  ['analistaCx', 'Analista de CX responsável', ['analistadecxresponsavel', 'analistadecx', 'analista']],
+  ['objetivo', 'O que o cliente considera sucesso', ['oqueoclienteconsiderasucesso', 'objetivo', 'sucesso']],
+  ['contatoNome', 'Nome do contato', ['nomedocontato', 'contato']],
+  ['contatoCargo', 'Cargo do contato', ['cargodocontato', 'cargo']],
+  ['contatoEmail', 'E-mail', ['email', 'emaildocontato']],
+  ['contatoTelefone', 'Telefone', ['telefone', 'telefonedocontato', 'celular', 'whatsapp']],
+  ['comentarios', 'Comentários do cliente', ['comentariosdocliente', 'comentarios']],
+  ['observacoes', 'Observações', ['observacoes', 'observacao', 'obs']],
+];
+const CAB = {
+  nome: ['cliente'], coordenadoria: ['coordenadoria'], status: ['situacao', 'status'],
+  inicio: ['iniciodoprojeto', 'inicio', 'datadeinicio'], posVendaEm: ['datadoposvenda', 'dataposvenda'],
+  npsFinal: ['npsnofinaldoprojeto', 'npsfinal', 'nps'], npsPos: ['npsnoposvenda', 'npsposvenda', 'npspos'],
+  indNome: ['nomedoindicador', 'indicador'], indUnidade: ['unidade'], indSentido: ['sentido'],
+  antes: ['antesdoprojeto', 'antes'], durante: ['duranteoprojeto', 'durante'], pos: ['posvenda'],
+  ...Object.fromEntries(FICHA_PL.map(f => [f[0], f[2]])),
+};
+const CAB_TXT = { nome: 'Cliente', coordenadoria: 'Coordenadoria', status: 'Situação', inicio: 'Início do projeto', posVendaEm: 'Data do pós-venda', npsFinal: 'NPS no final do projeto', npsPos: 'NPS no pós-venda', indNome: 'Indicador de sucesso', ...Object.fromEntries(FICHA_PL.map(f => [f[0], f[1]])) };
+/* Colunas calculadas pela própria planilha: a central refaz essas contas, então não são lidas nem apontadas como ignoradas. */
+const CALC_PL = ['csatmedio', 'variacaodonps', 'variacaovsantesdoprojeto', 'resultado'];
+let sincLendo = false;
+/* Data vinda da planilha: 15/01/2026, 2026-01-15, Date(2026,0,15) ou o número de série do Sheets. Devolve AAAA-MM-DD ou ''. */
+function dataPl(v) {
+  const iso = (a, m, d) => { const t = `${a}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; return m >= 1 && m <= 12 && d >= 1 && d <= 31 && !isNaN(Date.parse(t)) ? t : ''; };
+  if (typeof v === 'number') return v > 20000 && v < 80000 ? new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10) : '';
+  const t = String(v ?? '').trim(); let m;
+  if ((m = t.match(/^Date\((\d+),\s*(\d+),\s*(\d+)/))) return iso(m[1], +m[2] + 1, +m[3]);
+  if ((m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return iso(m[1], +m[2], +m[3]);
+  if ((m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/))) return iso(m[3].length === 2 ? '20' + m[3] : m[3], +m[2], +m[1]);
+  return '';
+}
+function statusPl(t) {
+  const n = norm(t);
+  return /encerr|conclu|finaliz|entreg/.test(n) ? 'encerrado' : /\bpos/.test(n) ? 'pos' : /andamento|ativo|execu|curso/.test(n) ? 'andamento' : '';
+}
+/* Compara a planilha com o que está na central e monta a lista do que gravar, sem gravar nada ainda. */
+function planoPlanilha(linhas) {
+  const chave = h => norm(h).replace(/ /g, '');
+  const hi = linhas.slice(0, 15).findIndex(l => (l || []).some(x => chave(x) === 'cliente'));
+  if (hi < 0) return { erro: 'Não encontrei o cabeçalho. A aba precisa ter uma linha de cabeçalho com uma coluna chamada “Cliente”.' };
+  const cab = linhas[hi].map(h => String(h ?? '').trim()), ch = cab.map(chave), mapa = {}, grupos = [], usadas = new Set();
+  ch.forEach((n, k) => {
+    const campo = Object.keys(CAB).find(c => CAB[c].includes(n));
+    if (campo && !(campo in mapa)) { mapa[campo] = k; usadas.add(k); }
+    if (CALC_PL.includes(n)) usadas.add(k);
+  });
+  /* A data de uma nota é a coluna “Data…” imediatamente à direita dela. */
+  const dataDe = k => k != null && (ch[k + 1] || '').startsWith('data') && !Object.values(mapa).includes(k + 1) ? (usadas.add(k + 1), k + 1) : null;
+  const dNps = { final: dataDe(mapa.npsFinal), pos: dataDe(mapa.npsPos) }, dInd = { antes: dataDe(mapa.antes), durante: dataDe(mapa.durante), pos: dataDe(mapa.pos) };
+  /* CSAT: blocos “Macroetapa N | Data da coleta | CSAT (1 a 5)”. O nome da macroetapa é o que está escrito na célula. */
+  ch.forEach((n, k) => {
+    if (!n.startsWith('macroetapa')) return;
+    const g = { k, data: null, valor: null }; usadas.add(k);
+    for (let j = k + 1; j < ch.length && j <= k + 3 && !ch[j].startsWith('macroetapa'); j++) {
+      if (g.data == null && ch[j].startsWith('data')) { g.data = j; usadas.add(j); }
+      else if (g.valor == null && ch[j].startsWith('csat') && !CALC_PL.includes(ch[j])) { g.valor = j; usadas.add(j); }
+    }
+    grupos.push(g);
+  });
+  const p = { novos: [], atualizados: [], iguais: 0, gravar: [], avisos: [], fora: cab.filter((h, k) => h && !usadas.has(k)),
+    lido: [`${Object.keys(mapa).filter(c => CAB_TXT[c]).length} colunas da ficha`, grupos.length ? `CSAT de até ${grupos.length} macroetapas` : '', 'npsFinal' in mapa || 'npsPos' in mapa ? 'NPS' : '', 'indNome' in mapa ? 'indicador de sucesso' : ''].filter(Boolean) };
+  const vistos = new Set(), cel = (l, k) => k == null ? '' : (l[k] ?? ''), txt = (l, c) => String(cel(l, mapa[c])).trim(), igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const nota = (l, k, tipo, quemE, rot) => {
+    const bruto = cel(l, k); if (String(bruto).trim() === '') return null;
+    const v = typeof bruto === 'number' ? bruto : numero(bruto);
+    if (!isFinite(v) || (tipo && foraEscala(tipo, v))) { p.avisos.push(`${quemE}: “${bruto}” não é ${tipo ? `uma nota válida de ${TIND[tipo]} (de ${ESCALA[tipo][0]} a ${ESCALA[tipo][1]})` : `um número em “${rot}”`}.`); return null; }
+    return v;
+  };
+  const quando = (l, k, quemE, rot) => {
+    if (String(cel(l, k)).trim() === '') return '';
+    const d = dataPl(cel(l, k));
+    if (!d) p.avisos.push(`${quemE}: não reconheci a data “${cel(l, k)}” em “${rot}”. Use o formato dia/mês/ano.`);
+    return d;
+  };
+  /* Encaixa as notas lidas nas medições que já existem: mesma fase é atualizada, fase nova é acrescentada. */
+  const encaixa = (ms, lidas, acha) => {
+    ms = [...ms];
+    for (const { fase, valor, data } of lidas) {
+      const k = ms.findIndex(m => (acha || ((m, f) => m.fase === f))(m, fase));
+      if (k < 0) ms.push({ fase, valor, data: data || hoje(), obs: '' });
+      else ms[k] = { ...ms[k], valor, data: data || ms[k].data || hoje() };
+    }
+    return ms;
+  };
+  linhas.slice(hi + 1).forEach((l, n) => {
+    l = l || [];
+    const nome = txt(l, 'nome'), id0 = norm(nome); if (!id0) return;
+    if (vistos.has(id0)) { p.avisos.push(`“${nome}” aparece mais de uma vez na planilha; usei só a primeira linha (a repetida é a linha ${hi + n + 2}).`); return; }
+    vistos.add(id0);
+    const atual = S.clientes.find(c => norm(c.nome) === id0), v = {};
+    for (const [c] of FICHA_PL) if (txt(l, c)) v[c] = txt(l, c);
+    if (txt(l, 'coordenadoria')) v.coordenadoria = COORDS.find(x => norm(x) === norm(txt(l, 'coordenadoria'))) || txt(l, 'coordenadoria');
+    if (txt(l, 'status')) { const s = statusPl(txt(l, 'status')); if (s) v.status = s; else p.avisos.push(`${nome}: não reconheci a situação “${txt(l, 'status')}”. Use “Em andamento”, “Em pós-venda” ou “Encerrado”.`); }
+    for (const c of ['inicio', 'posVendaEm']) { const d = quando(l, mapa[c], nome, CAB_TXT[c]); if (d) v[c] = d; }
+    const id = atual?.id || newId(), antes = p.gravar.length, inds = atual ? S.indicadores.filter(i => i.clienteId === id) : [];
+    const novoInd = d => ({ clienteId: id, criadoEm: Date.now(), macroetapa: '', sentido: 'subir', unidade: '', medicoes: [], ...d });
+    if (!atual) p.gravar.push(['clientes', id, { criadoEm: Date.now(), nome, coordenadoria: '', projeto: '', status: 'andamento', inicio: '', posVendaEm: '', objetivo: '', ...v }]);
+    else if (Object.keys(v).some(c => (atual[c] || '') !== v[c])) p.gravar.push(['clientes', id, { ...semId(atual), ...v }]);
+
+    /* NPS: um indicador por cliente, com a nota do final do projeto e a do pós-venda. */
+    const nps = [['final', mapa.npsFinal], ['pos', mapa.npsPos]].map(([fase, k]) => ({ fase, valor: nota(l, k, 'nps', nome), data: quando(l, dNps[fase], nome, 'Data da coleta do NPS') })).filter(x => x.valor != null);
+    if (nps.length) {
+      const ind = inds.find(i => i.tipo === 'nps'), ms = encaixa(ind?.medicoes || [], nps, (m, f) => f === 'pos' ? m.fase === 'pos' : m.fase !== 'pos');
+      if (!ind || !igual(ms, ind.medicoes || [])) p.gravar.push(['indicadores', ind?.id || newId(), { ...(ind ? semId(ind) : novoInd({ tipo: 'nps', nome: 'NPS' })), medicoes: ms }]);
+    }
+    /* CSAT: um indicador por macroetapa. A macroetapa já entra na pasta mesmo sem nota; indicador com várias medições não é mexido. */
+    const macros = new Set();
+    for (const g of grupos) {
+      const macro = String(cel(l, g.k)).trim(), valor = nota(l, g.valor, 'csat', nome);
+      if (!macro) { if (valor != null) p.avisos.push(`${nome}: há uma nota de CSAT sem o nome da macroetapa (${cab[g.k]}).`); continue; }
+      if (macros.has(norm(macro))) { p.avisos.push(`${nome}: a macroetapa “${macro}” está repetida; usei só a primeira.`); continue; }
+      macros.add(norm(macro));
+      const ind = inds.find(i => i.tipo === 'csat' && norm(i.macroetapa) === norm(macro)), m0 = ind?.medicoes?.[0];
+      if (ind && (valor == null || ind.medicoes?.length > 1)) continue;
+      const ms = valor == null ? [] : [{ fase: m0?.fase || 'durante', valor, data: quando(l, g.data, nome, 'Data da coleta do CSAT') || m0?.data || hoje(), obs: m0?.obs || '' }];
+      if (!ind || !igual(ms, ind.medicoes || [])) p.gravar.push(['indicadores', ind?.id || newId(), { ...(ind ? semId(ind) : novoInd({ tipo: 'csat', nome: 'CSAT · ' + macro, macroetapa: macro })), medicoes: ms }]);
+    }
+    /* Indicador de sucesso do cliente: antes, durante e pós-venda. */
+    const meds = ['antes', 'durante', 'pos'].map(fase => ({ fase, valor: nota(l, mapa[fase], '', nome, FASE[fase]), data: quando(l, dInd[fase], nome, 'Data da medição') })).filter(x => x.valor != null);
+    const iNome = txt(l, 'indNome');
+    if (!iNome && meds.length) p.avisos.push(`${nome}: há medições do indicador de sucesso, mas falta o “Nome do indicador”.`);
+    if (iNome) {
+      const ind = inds.find(i => i.tipo === 'resultado' && norm(i.nome) === norm(iNome));
+      const d = { unidade: txt(l, 'indUnidade') || ind?.unidade || '', sentido: txt(l, 'indSentido') ? (/dimin|desc|reduz|menor|cair|baix/.test(norm(txt(l, 'indSentido'))) ? 'descer' : 'subir') : ind?.sentido || 'subir', medicoes: encaixa(ind?.medicoes || [], meds) };
+      if (!ind || d.unidade !== (ind.unidade || '') || d.sentido !== (ind.sentido || 'subir') || !igual(d.medicoes, ind.medicoes || [])) p.gravar.push(['indicadores', ind?.id || newId(), { ...(ind ? semId(ind) : novoInd({ tipo: 'resultado', nome: iNome })), ...d }]);
+    }
+    if (!atual) p.novos.push(nome); else if (p.gravar.length > antes) p.atualizados.push(atual.nome); else p.iguais++;
+  });
+  if (!vistos.size) return { erro: 'A planilha foi lida, mas ainda não há nenhum cliente preenchido abaixo do cabeçalho.' };
+  return p;
+}
+/* Lê a aba inteira. No claude.ai, pelo conector. No site, pelo link público, em três leituras (onde está o cabeçalho, o
+   cabeçalho, os dados), porque o Google descarta o texto do cabeçalho quando ele vem junto de uma coluna de números ou datas. */
+async function linhasPlanilha(cfg) {
+  const id = plId(cfg.url), aba = (cfg.aba || ABA_PL).replace(/^'|'$/g, '');
+  if (!WEB) return achaValores((await mcp.callTool(SHEETS, 'get_values', { spreadsheetId: id, range: `'${aba}'!A1:CZ1000` }, { cache: { refresh: true } })).payload) || [];
+  const ler = async f => achaValores((await lerGviz(id, `${aba}!${f}`, true)).payload) || [];
+  const h = (await ler('A1:A15')).findIndex(l => norm(l[0]) === 'cliente');
+  if (h < 0) return [];
+  return [(await ler(`A${h + 1}:CZ${h + 1}`))[0] || [], ...await ler(`A${h + 2}:CZ1000`).catch(() => [])];
+}
+function fPlanilha(erro) {
+  openForm({ titulo: 'Planilha de clientes', valores: S.planilha || {},
+    intro: `<p class="sub">Use a planilha “Base de Clientes e Indicadores · CX Ayra”: uma linha por cliente, com a ficha, o contato, o CSAT de cada macroetapa, o NPS e o indicador de sucesso.${WEB ? ' Ela precisa estar compartilhada como “Qualquer pessoa com o link”.' : ''}</p>`,
+    ok: 'Salvar e ler a planilha', campos: [
+    { k: 'url', label: 'Link da planilha', req: 1, dica: 'Cole o endereço da planilha no Google Sheets.' },
+    { k: 'aba', label: 'Nome da aba', req: 1, padrao: ABA_PL }],
+    salvar: async v => {
+      if (!plId(v.url)) return 'Não reconheci o link. Cole o endereço completo da planilha, que começa com docs.google.com/spreadsheets.';
+      await put('config', 'planilha', v);
+      setTimeout(() => sincClientes(v));
+    } });
+  if (erro) $('#ferr').textContent = erro;
+}
+async function sincClientes(cfg = S.planilha) {
+  if (sincLendo) return;
+  if (!mcp) return fPlanilha(mcpPronto ? 'O conector Google Sheets não está disponível nesta página. Abra a central no claude.ai com o conector ativo.' : 'A leitura de planilhas ainda está carregando. Tente de novo em instantes.');
+  sincLendo = true; render();
+  let p;
+  try { p = planoPlanilha(await linhasPlanilha(cfg)); }
+  catch (e) { p = { erro: ERRO_PL[e?.code]?.replace('o nome da aba e o intervalo', 'o nome da aba') || 'Não foi possível ler a planilha agora. Tente de novo em instantes.' }; }
+  sincLendo = false; render();
+  if (p.erro) return fPlanilha(p.erro);
+  const nomes = xs => xs.slice(0, 8).map(esc).join(', ') + (xs.length > 8 ? ` e mais ${xs.length - 8}` : '');
+  const li = [
+    p.novos.length ? `<li><b>${p.novos.length}</b> ${p.novos.length === 1 ? 'cliente novo' : 'clientes novos'}: ${nomes(p.novos)}</li>` : '',
+    p.atualizados.length ? `<li><b>${p.atualizados.length}</b> ${p.atualizados.length === 1 ? 'cliente com dados atualizados' : 'clientes com dados atualizados'}: ${nomes(p.atualizados)}</li>` : '',
+    p.iguais ? `<li><b>${p.iguais}</b> já ${p.iguais === 1 ? 'está igual' : 'estão iguais'} à planilha</li>` : ''].join('');
+  openForm({ titulo: 'Atualizar pela planilha', campos: [], ok: 'Atualizar a central',
+    intro: `<ul class="steps">${li}</ul><p class="sub">Lido da planilha: ${esc(p.lido.join(', '))}.${p.fora.length ? ` Colunas ignoradas: ${nomes(p.fora)}.` : ''}</p>`
+      + (p.avisos.length ? `<div class="empty"><b>Confira na planilha:</b><ul class="steps">${p.avisos.slice(0, 6).map(a => `<li>${esc(a)}</li>`).join('')}</ul>${p.avisos.length > 6 ? `<span class="sub">E mais ${p.avisos.length - 6}.</span>` : ''}</div>` : ''),
+    salvar: p.gravar.length ? async () => {
+      const b = $('#frm button[type=submit]'); b.disabled = true; b.textContent = 'Atualizando…';
+      try { for (const [col, id, data] of p.gravar) await put(col, id, data); }
+      catch (e) { b.disabled = false; b.textContent = 'Atualizar a central'; throw e; }
+    } : null });
+}
 function fDoc(d) {
   openForm({ titulo: d ? 'Editar página' : 'Nova página', valores: d, campos: [
     { k: 'titulo', label: 'Título', req: 1 }, { k: 'corpo', label: 'Conteúdo', tipo: 'area', alto: 1 }],
@@ -771,6 +975,7 @@ const A = {
   'mover': d => { const t = byId('tarefas', d.id); put('tarefas', t.id, { ...semId(t), coluna: d.para }); },
   'novo-doc': () => fDoc(), 'edit-doc': d => fDoc(byId('docs', d.id)),
   'novo-grafico': () => fGrafico(), 'edit-grafico': d => fGrafico(byId('graficos', d.id)),
+  'sinc-clientes': () => S.planilha?.url ? sincClientes() : fPlanilha(), 'cfg-planilha': () => fPlanilha(),
   'ler-planilha': d => { const g = byId('graficos', d.id); if (g && mcp) { lerPlanilha(g, true); render(); } },
   'edit-sprint': () => openForm({ titulo: 'Configurar sprint', valores: S.sprint || {}, campos: [
     { k: 'nome', label: 'Nome do sprint', req: 1, dica: 'Ex.: Sprint 1.' }, { k: 'fim', label: 'Termina em', tipo: 'date' },
@@ -816,15 +1021,18 @@ let WEB = false, auth = null, bloqueio = '';
 const cartao = (t, p, extra = '') => `<section class="card sec" style="max-width:460px;margin:40px auto;text-align:center;align-items:center"><h1>${t}</h1><p class="sub">${p}</p>${extra}</section>`;
 const carrega = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
 /* Lê um intervalo de uma planilha compartilhada por link, sem conector: o Google devolve os dados chamando a função `cb`. */
-function lerGviz(id, intervalo) {
+function lerGviz(id, intervalo, bruto) {
   return new Promise((ok, no) => {
     const cb = 'gviz' + newId(), s = document.createElement('script'), k = intervalo.lastIndexOf('!');
-    const aba = k > 0 ? intervalo.slice(0, k).replace(/^'|'$/g, '') : '', faixa = k > 0 ? intervalo.slice(k + 1) : intervalo;
+    const soAba = k < 0 && !/^[A-Za-z]+\d*(:[A-Za-z]+\d*)?$/.test(intervalo);
+    const aba = soAba ? intervalo : k > 0 ? intervalo.slice(0, k).replace(/^'|'$/g, '') : '', faixa = soAba ? '' : k > 0 ? intervalo.slice(k + 1) : intervalo;
     const fim = (f, x) => { clearTimeout(t); delete window[cb]; s.remove(); f(x); };
     const t = setTimeout(() => fim(no, { code: 'gviz' }), 15000);
-    window[cb] = r => r?.status === 'ok' ? fim(ok, { payload: { values: (r.table?.rows || []).map(l => (l.c || []).map(c => !c ? '' : typeof c.v === 'number' ? c.v : (c.f ?? c.v ?? ''))) } }) : fim(no, { code: 'gviz' });
+    /* Em modo `bruto` (leitura da base de clientes), datas vêm como Date(ano,mês,dia) e percentuais como aparecem na tela. */
+    const cel = c => !c || c.v == null ? '' : bruto && /^Date\(/.test(c.v) ? c.v : typeof c.v === 'number' ? (bruto && /%$/.test(c.f || '') ? c.f : c.v) : (c.f ?? c.v ?? '');
+    window[cb] = r => r?.status === 'ok' ? fim(ok, { payload: { values: (r.table?.rows || []).map(l => (l.c || []).map(cel)) } }) : fim(no, { code: 'gviz' });
     s.onerror = () => fim(no, { code: 'gviz' });
-    s.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=0${aba ? '&sheet=' + encodeURIComponent(aba) : ''}&range=${encodeURIComponent(faixa)}`;
+    s.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=0${aba ? '&sheet=' + encodeURIComponent(aba) : ''}${faixa ? '&range=' + encodeURIComponent(faixa) : ''}`;
     document.head.appendChild(s);
   });
 }
@@ -905,6 +1113,7 @@ function ligar() {
     }
   }, erro));
   db.doc('config/sprint').onSnapshot(s => { S.sprint = s.exists ? s.data() : null; render(); }, erro);
+  db.doc('config/planilha').onSnapshot(s => { S.planilha = s.exists ? s.data() : null; render(); }, () => {});
   db.collection('chat').orderBy('ts', 'desc').limit(200).onSnapshot(s => { S.chat = lista(s); loaded.chat = true; render(); }, erro);
   if (WEB) db.collection('permitidos').onSnapshot(s => { S.permitidos = lista(s); }, () => {});
 }
